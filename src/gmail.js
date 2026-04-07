@@ -7,9 +7,46 @@ import { withRetry } from './utils.js';
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 
+function tryParseToken(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return null;
+  }
+
+  const candidates = [
+    raw,
+    raw.trim(),
+    raw.trim().replace(/^'+|'+$/g, ''),
+    raw.trim().replace(/^"+|"+$/g, ''),
+    raw.trim().replace(/\\"/g, '"'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+      if (typeof parsed === 'string') {
+        const parsedAgain = JSON.parse(parsed);
+        if (parsedAgain && typeof parsedAgain === 'object') {
+          return parsedAgain;
+        }
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return null;
+}
+
 async function loadSavedToken(tokenPath) {
   if (process.env.GMAIL_TOKEN_JSON?.trim()) {
-    return JSON.parse(process.env.GMAIL_TOKEN_JSON);
+    const parsed = tryParseToken(process.env.GMAIL_TOKEN_JSON);
+    if (!parsed) {
+      throw new Error('Invalid GMAIL_TOKEN_JSON format. Expected valid JSON object.');
+    }
+    return parsed;
   }
 
   try {
