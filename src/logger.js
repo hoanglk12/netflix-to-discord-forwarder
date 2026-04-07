@@ -33,8 +33,12 @@ export function createLogger(logFilePath) {
       console.log(line);
     }
 
-    await ensureLogDir();
-    await fs.appendFile(logFilePath, `${line}\n`, 'utf8');
+    try {
+      await ensureLogDir();
+      await fs.appendFile(logFilePath, `${line}\n`, 'utf8');
+    } catch {
+      // Ignore file-write failures in serverless/read-only environments.
+    }
   }
 
   return {

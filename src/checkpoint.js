@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+let inMemoryCheckpoint = null;
+
 function getLocalDayKey(now = new Date()) {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -63,6 +65,13 @@ function normalizeState(raw, maxIds, dayKey) {
 export async function loadCheckpoint(filePath, maxIds) {
   const dayKey = getLocalDayKey();
 
+  if (process.env.VERCEL) {
+    if (!inMemoryCheckpoint) {
+      inMemoryCheckpoint = createEmptyState(dayKey);
+    }
+    return normalizeState(inMemoryCheckpoint, maxIds, dayKey);
+  }
+
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     return normalizeState(JSON.parse(raw), maxIds, dayKey);
@@ -75,6 +84,11 @@ export async function loadCheckpoint(filePath, maxIds) {
 }
 
 export async function saveCheckpoint(filePath, state) {
+  if (process.env.VERCEL) {
+    inMemoryCheckpoint = state;
+    return;
+  }
+
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tempPath = `${filePath}.tmp`;
   await fs.writeFile(tempPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');

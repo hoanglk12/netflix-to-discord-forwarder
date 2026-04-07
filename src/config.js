@@ -33,10 +33,25 @@ function getPositiveInt(name, fallback) {
 export function loadConfig() {
   const senderFilter = process.env.GMAIL_SENDER_FILTER?.trim() || 'netflix.com';
   const queryOverride = process.env.GMAIL_QUERY?.trim();
+  const gmailTokenJson = process.env.GMAIL_TOKEN_JSON?.trim() || null;
+  const gmailCredentialsJson = process.env.GMAIL_OAUTH_CREDENTIALS_JSON?.trim() || null;
+
+  const gmailTokenPath = process.env.GMAIL_TOKEN_PATH?.trim()
+    ? resolveFromCwd(process.env.GMAIL_TOKEN_PATH, './secrets/gmail-token.json')
+    : null;
+  const gmailCredentialsPath = process.env.GMAIL_OAUTH_CREDENTIALS_PATH?.trim()
+    ? resolveFromCwd(process.env.GMAIL_OAUTH_CREDENTIALS_PATH, './secrets/gmail-oauth-client.json')
+    : null;
+
+  if (!gmailTokenJson && !gmailTokenPath) {
+    throw new Error('Missing Gmail token source. Set GMAIL_TOKEN_JSON or GMAIL_TOKEN_PATH.');
+  }
 
   return {
-    gmailCredentialsPath: resolveFromCwd(getRequired('GMAIL_OAUTH_CREDENTIALS_PATH'), './secrets/gmail-oauth-client.json'),
-    gmailTokenPath: resolveFromCwd(getRequired('GMAIL_TOKEN_PATH'), './secrets/gmail-token.json'),
+    gmailCredentialsPath,
+    gmailTokenPath,
+    gmailCredentialsJson,
+    gmailTokenJson,
     discordWebhookUrl: getRequired('DISCORD_WEBHOOK_URL'),
     pollIntervalMs: getPositiveInt('POLL_INTERVAL_MS', 60000),
     gmailSenderFilter: senderFilter,

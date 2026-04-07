@@ -8,6 +8,10 @@ import { withRetry } from './utils.js';
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 
 async function loadSavedToken(tokenPath) {
+  if (process.env.GMAIL_TOKEN_JSON?.trim()) {
+    return JSON.parse(process.env.GMAIL_TOKEN_JSON);
+  }
+
   try {
     const raw = await fs.readFile(tokenPath, 'utf8');
     return JSON.parse(raw);
@@ -41,7 +45,11 @@ async function createOAuthClient(config, allowInteractive) {
   }
 
   if (!allowInteractive) {
-    throw new Error(`Missing Gmail token file at ${config.gmailTokenPath}. Run npm run auth first.`);
+    throw new Error('Missing Gmail token. Set GMAIL_TOKEN_JSON or run npm run auth to create GMAIL_TOKEN_PATH.');
+  }
+
+  if (!config.gmailCredentialsPath) {
+    throw new Error('Interactive auth requires GMAIL_OAUTH_CREDENTIALS_PATH.');
   }
 
   const client = await authenticate({
