@@ -43,10 +43,6 @@ export function loadConfig() {
     ? resolveFromCwd(process.env.GMAIL_OAUTH_CREDENTIALS_PATH, './secrets/gmail-oauth-client.json')
     : null;
 
-  if (!gmailTokenJson && !gmailTokenPath) {
-    throw new Error('Missing Gmail token source. Set GMAIL_TOKEN_JSON or GMAIL_TOKEN_PATH.');
-  }
-
   return {
     gmailCredentialsPath,
     gmailTokenPath,

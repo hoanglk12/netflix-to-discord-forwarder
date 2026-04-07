@@ -9,24 +9,32 @@ import { runPollCycle } from './poller.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let servicesPromise = null;
+let gmailPromise = null;
 let isRunning = false;
 let lastRunResult = null;
 
-async function getServices() {
+async function getCoreServices() {
   if (!servicesPromise) {
     servicesPromise = (async () => {
       const config = loadConfig();
       const logger = createLogger(config.logFilePath);
-      const gmail = await authorizeGmail(config, { allowInteractive: false });
-      return { config, logger, gmail };
+      return { config, logger };
     })();
   }
 
   return servicesPromise;
 }
 
+async function getGmailService() {
+  const { config } = await getCoreServices();
+  if (!gmailPromise) {
+    gmailPromise = authorizeGmail(config, { allowInteractive: false });
+  }
+  return gmailPromise;
+}
+
 export async function getConfigView() {
-  const { config } = await getServices();
+  const { config } = await getCoreServices();
   return {
     gmailQuery: config.gmailQuery,
     gmailSenderFilter: config.gmailSenderFilter,
@@ -37,7 +45,7 @@ export async function getConfigView() {
 }
 
 export async function getStatusView() {
-  await getServices();
+  await getCoreServices();
   return {
     isRunning,
     lastRunResult,
@@ -46,7 +54,7 @@ export async function getStatusView() {
 }
 
 export async function getLogsView(lines = 5) {
-  const { config } = await getServices();
+  const { config } = await getCoreServices();
   try {
     const content = await fs.readFile(config.logFilePath, 'utf8');
     const logs = content.split('\n').filter((line) => line.trim()).slice(-lines).reverse();
@@ -57,7 +65,7 @@ export async function getLogsView(lines = 5) {
 }
 
 export async function getCheckpointView() {
-  const { config } = await getServices();
+  const { config } = await getCoreServices();
   try {
     const content = await fs.readFile(config.checkpointPath, 'utf8');
     return JSON.parse(content);
@@ -71,7 +79,8 @@ export async function runNow() {
     return { status: 409, data: { error: 'Poll already running' } };
   }
 
-  const { config, logger, gmail } = await getServices();
+  const { config, logger } = await getCoreServices();
+  const gmail = await getGmailService();
   isRunning = true;
   try {
     lastRunResult = await runPollCycle({ gmail, config, logger });
@@ -110,7 +119,7 @@ export async function updateWebhookUrl(nextUrl) {
   }
   await fs.writeFile(envPath, lines.join('\n'), 'utf8');
 
-  const services = await getServices();
+  const services = await getCoreServices();
   services.config.discordWebhookUrl = nextUrl;
 
   return { status: 200, data: { message: 'Discord webhook URL updated successfully' } };
