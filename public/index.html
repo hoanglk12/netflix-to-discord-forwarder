@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Netflix to Discord Forwarder</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 900px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2em;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 0.95em;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #333;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 10px;
+    }
+
+    .panel {
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      font-weight: 600;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .button-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .button-secondary:hover {
+      background: #d0d0d0;
+      box-shadow: none;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 0.95em;
+      margin-bottom: 15px;
+    }
+
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #4caf50;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #f44336;
+    }
+
+    .status.info {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: 1px solid #2196f3;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+
+    .config-item {
+      padding: 15px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+
+    .config-label {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .config-value {
+      font-size: 1.1em;
+      color: #333;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+    }
+
+    .logs-container {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 6px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      height: 420px;
+      max-height: 420px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    .log-line {
+      padding: 4px 0;
+      word-break: break-all;
+    }
+
+    .log-error {
+      color: #f48771;
+    }
+
+    .log-warn {
+      color: #ce9178;
+    }
+
+    .log-info {
+      color: #d4d4d4;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .checkpoint-item {
+      padding: 12px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .checkpoint-key {
+      font-weight: 600;
+      color: #667eea;
+      font-size: 0.9em;
+    }
+
+    .checkpoint-value {
+      margin-top: 4px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      word-break: break-all;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 1.5em;
+      }
+
+      .config-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .loading {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: bounce 1.4s infinite;
+      margin-right: 4px;
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎬 Netflix to Discord</h1>
+      <p>Email Forwarder Control Panel</p>
+    </div>
+
+    <div class="content">
+      <!-- Status Section -->
+      <div class="section">
+        <div class="section-title">Status</div>
+        <div id="statusContainer"></div>
+      </div>
+
+      <!-- Control Section -->
+      <div class="section">
+        <div class="section-title">Control</div>
+        <div class="panel">
+          <div class="controls">
+            <button class="button" id="runButton" onclick="triggerRun()">
+              ▶ Run Now
+            </button>
+            <button class="button button-secondary" onclick="refreshAll()">
+              ⟳ Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuration Section -->
+      <div class="section">
+        <div class="section-title">Configuration</div>
+        <div class="panel">
+          <div class="config-grid" id="configGrid"></div>
+        </div>
+
+        <!-- Update Webhook URL Section -->
+        <div class="panel" style="background: #f0f7ff; border-color: #2196f3;">
+          <div style="font-weight: 600; margin-bottom: 15px; color: #1565c0;">Update Discord Webhook URL</div>
+          <div id="webhookUpdateStatus"></div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input
+              type="password"
+              id="webhookInput"
+              placeholder="Paste new Discord webhook URL"
+              style="flex: 1; min-width: 250px; padding: 10px; border: 1px solid #2196f3; border-radius: 6px; font-family: monospace; font-size: 0.9em;"
+            >
+            <button class="button" onclick="updateWebhook()" style="white-space: nowrap;">
+              💾 Update
+            </button>
+          </div>
+          <div style="font-size: 0.85em; color: #666; margin-top: 10px;">
+            ℹ️ Your webhook URL will be saved to .env file and used immediately
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="section">
+        <div class="section-title">Last Run Results</div>
+        <div class="panel">
+          <div id="resultsContainer">
+            <p style="color: #999;">No run results yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs Section -->
+      <div class="grid-2">
+        <div class="section">
+          <div class="logs-container" id="logsContainer">
+            <div class="log-line log-info">Fetching logs...</div>
+          </div>
+        </div>
+
+        <!-- Checkpoint Section -->
+        <div class="section">
+          <div class="section-title">Checkpoint Status</div>
+          <div class="panel" id="checkpointContainer">
+            <div class="log-info">Fetching checkpoint...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function apiCall(endpoint, method = 'GET', body = null) {
+      try {
+        const options = {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+        };
+        if (body) options.body = JSON.stringify(body);
+
+        const response = await fetch(`/api${endpoint}`, options);
+        return await response.json();
+      } catch (error) {
+        console.error(`API error at ${endpoint}:`, error);
+        return { error: error.message };
+      }
+    }
+
+    async function loadStatus() {
+      const data = await apiCall('/status');
+      const container = document.getElementById('statusContainer');
+
+      if (data.error) {
+        container.innerHTML = `<div class="status error">❌ Error: ${data.error}</div>`;
+        return;
+      }
+
+      const statusClass = data.isRunning ? 'info' : 'success';
+      const statusText = data.isRunning ? 'Running...' : 'Ready';
+      const runButton = document.getElementById('runButton');
+      runButton.disabled = data.isRunning;
+
+      container.innerHTML = `
+        <div class="status ${statusClass}">
+          <span class="status-dot"></span>
+          <span>${statusText}</span>
+        </div>
+      `;
+    }
+
+    async function loadConfig() {
+      const data = await apiCall('/config');
+      const grid = document.getElementById('configGrid');
+
+      if (data.error) {
+        grid.innerHTML = `<p style="color: #c62828;">Error loading config</p>`;
+        return;
+      }
+
+      grid.innerHTML = Object.entries(data)
+        .map(([key, value]) => `
+          <div class="config-item">
+            <div class="config-label">${key}</div>
+            <div class="config-value">${htmlEscape(String(value))}</div>
+          </div>
+        `)
+        .join('');
+    }
+
+    async function loadLogs() {
+      const data = await apiCall('/logs');
+      const container = document.getElementById('logsContainer');
+
+      if (data.error || !data.logs) {
+        container.innerHTML = `<div class="log-line log-error">Error loading logs</div>`;
+        return;
+      }
+
+      container.innerHTML = data.logs
+        .map(log => {
+          let className = 'log-info';
+          if (log.includes('ERROR')) className = 'log-error';
+          else if (log.includes('WARN')) className = 'log-warn';
+          return `<div class="log-line ${className}">${htmlEscape(log)}</div>`;
+        })
+        .join('');
+    }
+
+    async function loadCheckpoint() {
+      const data = await apiCall('/checkpoint');
+      const container = document.getElementById('checkpointContainer');
+
+      if (data.error) {
+        container.innerHTML = `<div style="color: #c62828;">Error loading checkpoint</div>`;
+        return;
+      }
+
+      if (data.status) {
+        container.innerHTML = `<div class="checkpoint-item"><div class="checkpoint-value">${data.status}</div></div>`;
+        return;
+      }
+
+      container.innerHTML = Object.entries(data)
+        .filter(([key]) => !key.startsWith('_'))
+        .map(([key, value]) => `
+          <div class="checkpoint-item">
+            <div class="checkpoint-key">${key}</div>
+            <div class="checkpoint-value">${htmlEscape(JSON.stringify(value, null, 2))}</div>
+          </div>
+        `)
+        .join('');
+    }
+
+    async function triggerRun() {
+      const button = document.getElementById('runButton');
+      button.disabled = true;
+      button.textContent = '▶ Running...';
+
+      const data = await apiCall('/run', 'POST');
+      const container = document.getElementById('resultsContainer');
+
+      if (data.error) {
+        container.innerHTML = `<div class="status error">❌ ${htmlEscape(data.error)}</div>`;
+      } else {
+        container.innerHTML = `
+          <div class="status success">
+            ✓ Run completed successfully
+          </div>
+          <div class="checkpoint-item">
+            <div class="checkpoint-key">Messages Sent</div>
+            <div class="checkpoint-value">${data.sent || 0}</div>
+          </div>
+          <div class="checkpoint-item">
+            <div class="checkpoint-key">Messages Skipped</div>
+            <div class="checkpoint-value">${data.skipped || 0}</div>
+          </div>
+          <div class="checkpoint-item">
+            <div class="checkpoint-key">Timestamp</div>
+            <div class="checkpoint-value">${formatTimestamp(new Date())}</div>
+          </div>
+        `;
+      }
+
+      button.disabled = false;
+      button.textContent = '▶ Run Now';
+      await loadLogs();
+      await loadCheckpoint();
+      await loadStatus();
+    }
+
+    async function refreshAll() {
+      await Promise.all([
+        loadStatus(),
+        loadConfig(),
+        loadLogs(),
+        loadCheckpoint(),
+      ]);
+    }
+
+    function htmlEscape(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatTimestamp(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      const ms = String(date.getMilliseconds()).padStart(3, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+    }
+
+    async function updateWebhook() {
+      const input = document.getElementById('webhookInput');
+      const webhook = input.value.trim();
+      const statusDiv = document.getElementById('webhookUpdateStatus');
+
+      if (!webhook) {
+        statusDiv.innerHTML = `<div class="status error">❌ Please enter a webhook URL</div>`;
+        return;
+      }
+
+      if (!webhook.startsWith('https://')) {
+        statusDiv.innerHTML = `<div class="status error">❌ Webhook URL must start with https://</div>`;
+        return;
+      }
+
+      statusDiv.innerHTML = `<div class="status info">⏳ Updating webhook...</div>`;
+
+      const result = await apiCall('/config', 'POST', { discordWebhookUrl: webhook });
+
+      if (result.error) {
+        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
+      } else {
+        statusDiv.innerHTML = `<div class="status success">✓ Webhook URL updated successfully</div>`;
+        input.value = '';
+        setTimeout(() => {
+          statusDiv.innerHTML = '';
+          loadConfig();
+        }, 2000);
+      }
+    }
+
+    // Load on startup
+    refreshAll();
+    // Refresh every 5 seconds
+    setInterval(refreshAll, 5000);
+  </script>
+</body>
+</html>

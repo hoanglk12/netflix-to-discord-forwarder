@@ -1,0 +1,8 @@
+node_modules/
+.env
+data/
+output/
+coverage/
+*.log
+secrets/
+registration_output.txt

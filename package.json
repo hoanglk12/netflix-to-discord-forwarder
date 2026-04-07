@@ -1,0 +1,21 @@
+{
+  "name": "netflix-to-discord-forwarder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Poll Gmail for Netflix emails and forward them to Discord webhooks.",
+  "type": "module",
+  "scripts": {
+    "auth": "node src/auth.js",
+    "once": "node src/index.js",
+    "ui": "node src/ui-server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
+    "dotenv": "^16.4.5",
+    "googleapis": "^144.0.0"
+  }
+}

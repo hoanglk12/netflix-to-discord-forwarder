@@ -1,0 +1,6 @@
+{
+  "notes": [
+    "Store secrets in local files outside version-controlled defaults.",
+    "Use environment variables for secret file paths and webhook destinations."
+  ]
+}
