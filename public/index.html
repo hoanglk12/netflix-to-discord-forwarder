@@ -445,6 +445,14 @@
       const data = await apiCall('/checkpoint');
       const container = document.getElementById('checkpointContainer');
 
+      if (data.status === 'Not initialized') {
+        const cached = readCachedCheckpoint();
+        if (cached) {
+          renderCheckpoint(cached, true);
+          return;
+        }
+      }
+
       if (data.error) {
         container.innerHTML = `<div style="color: #c62828;">Error loading checkpoint</div>`;
         return;
@@ -460,15 +468,7 @@
         return;
       }
 
-      container.innerHTML = Object.entries(data)
-        .filter(([key]) => !key.startsWith('_'))
-        .map(([key, value]) => `
-          <div class="checkpoint-item">
-            <div class="checkpoint-key">${key}</div>
-            <div class="checkpoint-value">${htmlEscape(JSON.stringify(value, null, 2))}</div>
-          </div>
-        `)
-        .join('');
+      renderCheckpoint(data, false);
     }
 
     async function triggerRun() {
@@ -483,6 +483,11 @@
         container.innerHTML = `<div class="status error">❌ ${htmlEscape(data.error)}</div>`;
       } else {
         renderLastRunResult(data, 'just now');
+        saveCachedLastRun(data);
+        if (data.checkpoint && typeof data.checkpoint === 'object') {
+          saveCachedCheckpoint(data.checkpoint);
+          renderCheckpoint(data.checkpoint, false);
+        }
       }
 
       button.disabled = false;
@@ -512,6 +517,51 @@
           <div class="checkpoint-value">${formatTimestamp(new Date())}</div>
         </div>
       `;
+    }
+
+    function renderCheckpoint(data, fromCache) {
+      const container = document.getElementById('checkpointContainer');
+      const badge = fromCache ? '<div class="status info" style="margin-bottom:8px;">Showing cached checkpoint</div>' : '';
+      const body = Object.entries(data)
+        .filter(([key]) => !key.startsWith('_'))
+        .map(([key, value]) => `
+          <div class="checkpoint-item">
+            <div class="checkpoint-key">${key}</div>
+            <div class="checkpoint-value">${htmlEscape(JSON.stringify(value, null, 2))}</div>
+          </div>
+        `)
+        .join('');
+      container.innerHTML = `${badge}${body}`;
+    }
+
+    function saveCachedLastRun(data) {
+      localStorage.setItem('lastRunResult', JSON.stringify(data));
+    }
+
+    function saveCachedCheckpoint(data) {
+      localStorage.setItem('lastCheckpoint', JSON.stringify(data));
+    }
+
+    function readCachedCheckpoint() {
+      try {
+        const raw = localStorage.getItem('lastCheckpoint');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function restoreLastRunFromCache() {
+      try {
+        const raw = localStorage.getItem('lastRunResult');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data && typeof data === 'object') {
+          renderLastRunResult(data, 'cached');
+        }
+      } catch {
+        // ignore cache parse errors
+      }
     }
 
     async function refreshAll() {
@@ -571,6 +621,7 @@
     }
 
     // Load on startup
+    restoreLastRunFromCache();
     refreshAll();
     // Refresh every 5 seconds
     setInterval(refreshAll, 5000);

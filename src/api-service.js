@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
+import { loadCheckpoint } from './checkpoint.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,8 +68,7 @@ export async function getLogsView(lines = 5) {
 export async function getCheckpointView() {
   const { config } = await getCoreServices();
   try {
-    const content = await fs.readFile(config.checkpointPath, 'utf8');
-    return JSON.parse(content);
+    return await loadCheckpoint(config.checkpointPath, config.checkpointMaxIds);
   } catch {
     return { status: 'Not initialized' };
   }
@@ -84,7 +84,8 @@ export async function runNow() {
   isRunning = true;
   try {
     lastRunResult = await runPollCycle({ gmail, config, logger });
-    return { status: 200, data: lastRunResult };
+    const checkpoint = await getCheckpointView();
+    return { status: 200, data: { ...lastRunResult, checkpoint } };
   } catch (error) {
     return {
       status: 500,
