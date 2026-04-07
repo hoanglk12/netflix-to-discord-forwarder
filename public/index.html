@@ -397,6 +397,10 @@
           <span>${statusText}</span>
         </div>
       `;
+
+      if (data.lastRunResult && typeof data.lastRunResult === 'object') {
+        renderLastRunResult(data.lastRunResult, 'from server status');
+      }
     }
 
     async function loadConfig() {
@@ -451,6 +455,11 @@
         return;
       }
 
+      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+        container.innerHTML = `<div class="checkpoint-item"><div class="checkpoint-value">No checkpoint data available</div></div>`;
+        return;
+      }
+
       container.innerHTML = Object.entries(data)
         .filter(([key]) => !key.startsWith('_'))
         .map(([key, value]) => `
@@ -468,28 +477,12 @@
       button.textContent = '▶ Running...';
 
       const data = await apiCall('/run', 'POST');
-      const container = document.getElementById('resultsContainer');
 
       if (data.error) {
+        const container = document.getElementById('resultsContainer');
         container.innerHTML = `<div class="status error">❌ ${htmlEscape(data.error)}</div>`;
       } else {
-        container.innerHTML = `
-          <div class="status success">
-            ✓ Run completed successfully
-          </div>
-          <div class="checkpoint-item">
-            <div class="checkpoint-key">Messages Sent</div>
-            <div class="checkpoint-value">${data.sent || 0}</div>
-          </div>
-          <div class="checkpoint-item">
-            <div class="checkpoint-key">Messages Skipped</div>
-            <div class="checkpoint-value">${data.skipped || 0}</div>
-          </div>
-          <div class="checkpoint-item">
-            <div class="checkpoint-key">Timestamp</div>
-            <div class="checkpoint-value">${formatTimestamp(new Date())}</div>
-          </div>
-        `;
+        renderLastRunResult(data, 'just now');
       }
 
       button.disabled = false;
@@ -497,6 +490,28 @@
       await loadLogs();
       await loadCheckpoint();
       await loadStatus();
+    }
+
+    function renderLastRunResult(data, note = '') {
+      const container = document.getElementById('resultsContainer');
+      const noteText = note ? ` (${note})` : '';
+      container.innerHTML = `
+        <div class="status success">
+          ✓ Run completed successfully${noteText}
+        </div>
+        <div class="checkpoint-item">
+          <div class="checkpoint-key">Messages Sent</div>
+          <div class="checkpoint-value">${data.sent ?? 0}</div>
+        </div>
+        <div class="checkpoint-item">
+          <div class="checkpoint-key">Messages Skipped</div>
+          <div class="checkpoint-value">${data.skipped ?? 0}</div>
+        </div>
+        <div class="checkpoint-item">
+          <div class="checkpoint-key">Timestamp</div>
+          <div class="checkpoint-value">${formatTimestamp(new Date())}</div>
+        </div>
+      `;
     }
 
     async function refreshAll() {
