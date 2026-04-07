@@ -41,6 +41,18 @@ function tryParseToken(raw) {
 }
 
 async function loadSavedToken(tokenPath) {
+  if (process.env.GMAIL_TOKEN_JSON_BASE64?.trim()) {
+    try {
+      const decoded = Buffer.from(process.env.GMAIL_TOKEN_JSON_BASE64, 'base64').toString('utf8');
+      const parsed = tryParseToken(decoded);
+      if (parsed) {
+        return parsed;
+      }
+    } catch {
+      throw new Error('Invalid GMAIL_TOKEN_JSON_BASE64 format. Expected base64 encoded JSON.');
+    }
+  }
+
   if (process.env.GMAIL_TOKEN_JSON?.trim()) {
     const parsed = tryParseToken(process.env.GMAIL_TOKEN_JSON);
     if (!parsed) {
