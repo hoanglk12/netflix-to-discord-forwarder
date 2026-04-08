@@ -719,7 +719,8 @@
       } else {
         statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
         input.value = '';
-        await loadConfig();
+        currentWebhookUrls = [...currentWebhookUrls, `${webhook.slice(0, 50)}...`];
+        renderWebhookList(currentWebhookUrls);
         setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
       }
     }
@@ -734,7 +735,8 @@
         statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
       } else {
         statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
-        await loadConfig();
+        currentWebhookUrls = currentWebhookUrls.filter((_, i) => i !== index);
+        renderWebhookList(currentWebhookUrls);
         setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
       }
     }
