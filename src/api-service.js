@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig } from './config.js';
+import { loadConfig, MAX_WEBHOOK_URLS } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
@@ -41,7 +41,7 @@ export async function getConfigView() {
     gmailSenderFilter: config.gmailSenderFilter,
     forwardLatestCount: config.forwardLatestCount,
     gmailFetchLimit: config.gmailFetchLimit,
-    discordWebhookUrl: `${config.discordWebhookUrl.slice(0, 50)}...`,
+    discordWebhookUrls: config.discordWebhookUrls.map((u) => `${u.slice(0, 50)}...`),
   };
 }
 
@@ -113,32 +113,59 @@ export async function runNow() {
   }
 }
 
-export async function updateWebhookUrl(nextUrl) {
-  if (!nextUrl || !nextUrl.startsWith('https://')) {
-    return { status: 400, data: { error: 'Invalid webhook URL' } };
-  }
-
-  if (process.env.VERCEL) {
-    return {
-      status: 501,
-      data: { error: 'On Vercel, update DISCORD_WEBHOOK_URL in your Vercel Project Settings > Environment Variables, then redeploy.' },
-    };
-  }
+async function persistWebhookUrls(urls) {
+  if (process.env.VERCEL) return;
 
   const envPath = path.resolve(__dirname, '../.env');
   const raw = await fs.readFile(envPath, 'utf8');
   const lines = raw.split('\n');
   const key = 'DISCORD_WEBHOOK_URL';
+  const value = urls.join(',');
   const index = lines.findIndex((line) => line.startsWith(`${key}=`));
   if (index >= 0) {
-    lines[index] = `${key}=${nextUrl}`;
+    lines[index] = `${key}=${value}`;
   } else {
-    lines.push(`${key}=${nextUrl}`);
+    lines.push(`${key}=${value}`);
   }
   await fs.writeFile(envPath, lines.join('\n'), 'utf8');
+}
 
-  const services = await getCoreServices();
-  services.config.discordWebhookUrl = nextUrl;
+export async function addWebhookUrl(nextUrl) {
+  if (!nextUrl || !nextUrl.startsWith('https://')) {
+    return { status: 400, data: { error: 'Invalid webhook URL. Must start with https://' } };
+  }
 
-  return { status: 200, data: { message: 'Discord webhook URL updated successfully' } };
+  const { config } = await getCoreServices();
+  const urls = config.discordWebhookUrls;
+
+  if (urls.length >= MAX_WEBHOOK_URLS) {
+    return { status: 400, data: { error: `Maximum ${MAX_WEBHOOK_URLS} webhook URLs allowed` } };
+  }
+
+  if (urls.includes(nextUrl)) {
+    return { status: 400, data: { error: 'This webhook URL already exists' } };
+  }
+
+  urls.push(nextUrl);
+  await persistWebhookUrls(urls);
+
+  return { status: 200, data: { message: 'Webhook URL added', count: urls.length } };
+}
+
+export async function removeWebhookUrl(index) {
+  const { config } = await getCoreServices();
+  const urls = config.discordWebhookUrls;
+
+  if (urls.length <= 1) {
+    return { status: 400, data: { error: 'Cannot remove the last webhook URL' } };
+  }
+
+  if (index < 0 || index >= urls.length) {
+    return { status: 400, data: { error: 'Invalid webhook index' } };
+  }
+
+  urls.splice(index, 1);
+  await persistWebhookUrls(urls);
+
+  return { status: 200, data: { message: 'Webhook URL removed', count: urls.length } };
 }

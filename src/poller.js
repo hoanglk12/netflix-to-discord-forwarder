@@ -4,7 +4,7 @@ import {
   loadCheckpoint,
   saveCheckpoint,
 } from './checkpoint.js';
-import { buildDiscordPayload, isRetriableDiscordError, postToDiscord } from './discord.js';
+import { buildDiscordPayload, deleteDiscordMessage, isRetriableDiscordError, postToDiscord } from './discord.js';
 import { withRetry } from './utils.js';
 
 function matchesSenderDomain(message, senderFilter) {
@@ -32,28 +32,56 @@ export function hasExactDuplicateWindow(currentIds, previousIds, requiredCount) 
   return currentIds.every((id, index) => id === previousIds[index]);
 }
 
+async function deletePreviousMessages(checkpoint, logger) {
+  const messages = checkpoint.lastSentDiscordMessages || [];
+  if (messages.length === 0) return;
+
+  await logger.info('Deleting previous Discord messages', { count: messages.length });
+
+  for (const { webhookUrl, messageId } of messages) {
+    if (!webhookUrl || !messageId) continue;
+    try {
+      await deleteDiscordMessage(webhookUrl, messageId);
+    } catch (error) {
+      await logger.warn('Failed to delete Discord message', {
+        messageId,
+        error: error.message,
+      });
+    }
+  }
+}
+
 async function sendMessages(messages, config, logger) {
   const deliveredIds = [];
+  const discordMessages = [];
 
   for (const message of messages) {
     const payload = buildDiscordPayload(message);
-    await withRetry(
-      () => postToDiscord(config.discordWebhookUrl, payload),
-      {
-        logger,
-        taskName: 'discord webhook',
-        isRetriable: isRetriableDiscordError,
-      },
-    );
+
+    for (const webhookUrl of config.discordWebhookUrls) {
+      const result = await withRetry(
+        () => postToDiscord(webhookUrl, payload),
+        {
+          logger,
+          taskName: 'discord webhook',
+          isRetriable: isRetriableDiscordError,
+        },
+      );
+
+      if (result?.messageId) {
+        discordMessages.push({ webhookUrl, messageId: result.messageId });
+      }
+    }
 
     deliveredIds.push(message.id);
     await logger.info('Forwarded message to Discord', {
       id: message.id,
       subject: message.subject,
+      webhookCount: config.discordWebhookUrls.length,
     });
   }
 
-  return deliveredIds;
+  return { deliveredIds, discordMessages };
 }
 
 export async function runPollCycle({ gmail, config, logger }) {
@@ -82,8 +110,10 @@ export async function runPollCycle({ gmail, config, logger }) {
     return { sent: 0, skipped: latestForRun.length, initialized: false };
   }
 
-  const deliveredIds = await sendMessages(latestForRun, config, logger);
-  const nextCheckpoint = buildCheckpointForOnceRun(checkpoint, latestIds, config.checkpointMaxIds);
+  await deletePreviousMessages(checkpoint, logger);
+
+  const { deliveredIds, discordMessages } = await sendMessages(latestForRun, config, logger);
+  const nextCheckpoint = buildCheckpointForOnceRun(checkpoint, latestIds, config.checkpointMaxIds, discordMessages);
   await saveCheckpoint(config.checkpointPath, nextCheckpoint);
   return {
     sent: deliveredIds.length,

@@ -23,6 +23,7 @@ function createEmptyState(dayKey) {
     lastOnceLatestIds: [],
     lastOnceRunAt: null,
     lastSuccessAt: null,
+    lastSentDiscordMessages: [],
   };
 }
 
@@ -39,6 +40,7 @@ function normalizeState(raw, maxIds, dayKey) {
     lastOnceLatestIds: Array.isArray(raw.lastOnceLatestIds) ? raw.lastOnceLatestIds.filter(Boolean) : [],
     lastOnceRunAt: raw.lastOnceRunAt || null,
     lastSuccessAt: raw.lastSuccessAt || null,
+    lastSentDiscordMessages: Array.isArray(raw.lastSentDiscordMessages) ? raw.lastSentDiscordMessages : [],
   };
 
   if (normalized.day !== dayKey) {
@@ -46,6 +48,7 @@ function normalizeState(raw, maxIds, dayKey) {
       ...createEmptyState(dayKey),
       lastOnceLatestIds: [...new Set(normalized.lastOnceLatestIds)].slice(-maxIds),
       lastOnceRunAt: normalized.lastOnceRunAt,
+      lastSentDiscordMessages: normalized.lastSentDiscordMessages,
     };
   }
 
@@ -105,7 +108,7 @@ export function buildUpdatedCheckpoint(currentState, deliveredIds, maxIds) {
   };
 }
 
-export function buildCheckpointForOnceRun(currentState, latestIds, maxIds) {
+export function buildCheckpointForOnceRun(currentState, latestIds, maxIds, discordMessages = []) {
   const dayKey = getLocalDayKey();
   const baseState = currentState.day === dayKey ? currentState : createEmptyState(dayKey);
 
@@ -117,5 +120,6 @@ export function buildCheckpointForOnceRun(currentState, latestIds, maxIds) {
     lastOnceLatestIds: [...new Set(latestIds)].slice(-maxIds),
     lastOnceRunAt: formatTimestamp(),
     lastSuccessAt: baseState.lastSuccessAt,
+    lastSentDiscordMessages: discordMessages,
   };
 }

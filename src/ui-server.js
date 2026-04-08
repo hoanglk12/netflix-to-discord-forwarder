@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import url from 'url';
 import { fileURLToPath } from 'url';
-import { loadConfig } from './config.js';
+import { loadConfig, MAX_WEBHOOK_URLS } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
@@ -72,7 +72,7 @@ async function handleApiRequest(pathname, method, body) {
         gmailSenderFilter: config.gmailSenderFilter,
         forwardLatestCount: config.forwardLatestCount,
         gmailFetchLimit: config.gmailFetchLimit,
-        discordWebhookUrl: config.discordWebhookUrl.substring(0, 50) + '...',
+        discordWebhookUrls: config.discordWebhookUrls.map((u) => `${u.substring(0, 50)}...`),
       },
     };
   }
@@ -80,26 +80,38 @@ async function handleApiRequest(pathname, method, body) {
   if (pathname === '/api/config' && method === 'POST') {
     try {
       const data = JSON.parse(body);
-      if (data.discordWebhookUrl && data.discordWebhookUrl.trim()) {
-        const success = await updateEnvFile('DISCORD_WEBHOOK_URL', data.discordWebhookUrl.trim());
-        if (success) {
-          config.discordWebhookUrl = data.discordWebhookUrl.trim();
-          return {
-            status: 200,
-            data: { message: 'Discord webhook URL updated successfully' },
-          };
-        } else {
-          return {
-            status: 500,
-            data: { error: 'Failed to update .env file' },
-          };
+      const { action } = data;
+
+      if (action === 'add') {
+        const nextUrl = data.webhookUrl?.trim();
+        if (!nextUrl || !nextUrl.startsWith('https://')) {
+          return { status: 400, data: { error: 'Invalid webhook URL. Must start with https://' } };
         }
-      } else {
-        return {
-          status: 400,
-          data: { error: 'Invalid webhook URL' },
-        };
+        if (config.discordWebhookUrls.length >= MAX_WEBHOOK_URLS) {
+          return { status: 400, data: { error: `Maximum ${MAX_WEBHOOK_URLS} webhook URLs allowed` } };
+        }
+        if (config.discordWebhookUrls.includes(nextUrl)) {
+          return { status: 400, data: { error: 'This webhook URL already exists' } };
+        }
+        config.discordWebhookUrls.push(nextUrl);
+        await updateEnvFile('DISCORD_WEBHOOK_URL', config.discordWebhookUrls.join(','));
+        return { status: 200, data: { message: 'Webhook URL added', count: config.discordWebhookUrls.length } };
       }
+
+      if (action === 'remove') {
+        const index = Number(data.index);
+        if (config.discordWebhookUrls.length <= 1) {
+          return { status: 400, data: { error: 'Cannot remove the last webhook URL' } };
+        }
+        if (index < 0 || index >= config.discordWebhookUrls.length) {
+          return { status: 400, data: { error: 'Invalid webhook index' } };
+        }
+        config.discordWebhookUrls.splice(index, 1);
+        await updateEnvFile('DISCORD_WEBHOOK_URL', config.discordWebhookUrls.join(','));
+        return { status: 200, data: { message: 'Webhook URL removed', count: config.discordWebhookUrls.length } };
+      }
+
+      return { status: 400, data: { error: 'Invalid action. Use "add" or "remove".' } };
     } catch (error) {
       return {
         status: 400,

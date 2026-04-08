@@ -92,7 +92,10 @@ export function buildDiscordPayload(message) {
 }
 
 export async function postToDiscord(webhookUrl, payload) {
-  const response = await fetch(webhookUrl, {
+  const url = new URL(webhookUrl);
+  url.searchParams.set('wait', 'true');
+
+  const response = await fetch(url.toString(), {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -101,7 +104,12 @@ export async function postToDiscord(webhookUrl, payload) {
   });
 
   if (response.ok) {
-    return;
+    try {
+      const data = await response.json();
+      return { messageId: data.id };
+    } catch {
+      return { messageId: null };
+    }
   }
 
   if (response.status === 429) {
@@ -125,4 +133,32 @@ export async function postToDiscord(webhookUrl, payload) {
 
 export function isRetriableDiscordError(error) {
   return error?.status === 429 || error?.status >= 500 || error?.cause?.code === 'ECONNRESET';
+}
+
+export async function deleteDiscordMessage(webhookUrl, messageId) {
+  const url = new URL(webhookUrl);
+  url.pathname = `${url.pathname}/messages/${messageId}`;
+
+  const response = await fetch(url.toString(), { method: 'DELETE' });
+
+  if (response.ok || response.status === 204) {
+    return true;
+  }
+
+  if (response.status === 404) {
+    return false;
+  }
+
+  if (response.status === 429) {
+    let retryAfterMs = 0;
+    try {
+      const json = await response.json();
+      retryAfterMs = Number(json.retry_after) || 0;
+    } catch {
+      retryAfterMs = 0;
+    }
+    throw createDiscordError('Discord rate limit hit during delete.', retryAfterMs, response.status);
+  }
+
+  return false;
 }

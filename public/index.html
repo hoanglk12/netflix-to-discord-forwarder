@@ -258,6 +258,53 @@
       }
     }
 
+    .webhook-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .webhook-item .webhook-url {
+      flex: 1;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      color: #555;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .webhook-item .webhook-index {
+      font-weight: 600;
+      color: #667eea;
+      font-size: 0.85em;
+      min-width: 20px;
+    }
+
+    .webhook-remove {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #f44336;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.85em;
+    }
+
+    .webhook-remove:hover {
+      background: #ffcdd2;
+    }
+
+    .webhook-remove:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
     .loading {
       display: inline-block;
       width: 4px;
@@ -310,10 +357,11 @@
           <div class="config-grid" id="configGrid"></div>
         </div>
 
-        <!-- Update Webhook URL Section -->
+        <!-- Webhook URLs Management Section -->
         <div class="panel" style="background: #f0f7ff; border-color: #2196f3;">
-          <div style="font-weight: 600; margin-bottom: 15px; color: #1565c0;">Update Discord Webhook URL</div>
+          <div style="font-weight: 600; margin-bottom: 15px; color: #1565c0;">Discord Webhook URLs <span id="webhookCount" style="font-weight: 400; font-size: 0.85em; color: #666;">(0/5)</span></div>
           <div id="webhookUpdateStatus"></div>
+          <div id="webhookList" style="margin-bottom: 15px;"></div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <input
               type="password"
@@ -321,12 +369,12 @@
               placeholder="Paste new Discord webhook URL"
               style="flex: 1; min-width: 250px; padding: 10px; border: 1px solid #2196f3; border-radius: 6px; font-family: monospace; font-size: 0.9em;"
             >
-            <button class="button" onclick="updateWebhook()" style="white-space: nowrap;">
-              💾 Update
+            <button class="button" id="addWebhookBtn" onclick="addWebhook()" style="white-space: nowrap;">
+              + Add Webhook
             </button>
           </div>
           <div style="font-size: 0.85em; color: #666; margin-top: 10px;">
-            ℹ️ Your webhook URL will be saved to .env file and used immediately
+            ℹ️ Up to 5 webhook URLs. All channels receive messages when you click Run.
           </div>
         </div>
       </div>
@@ -403,6 +451,8 @@
       }
     }
 
+    let currentWebhookUrls = [];
+
     async function loadConfig() {
       const data = await apiCall('/config');
       const grid = document.getElementById('configGrid');
@@ -412,11 +462,41 @@
         return;
       }
 
-      grid.innerHTML = Object.entries(data)
+      if (Array.isArray(data.discordWebhookUrls)) {
+        currentWebhookUrls = data.discordWebhookUrls;
+        renderWebhookList(currentWebhookUrls);
+      }
+
+      const configEntries = Object.entries(data).filter(([key]) => key !== 'discordWebhookUrls');
+      grid.innerHTML = configEntries
         .map(([key, value]) => `
           <div class="config-item">
             <div class="config-label">${key}</div>
             <div class="config-value">${htmlEscape(String(value))}</div>
+          </div>
+        `)
+        .join('');
+    }
+
+    function renderWebhookList(urls) {
+      const list = document.getElementById('webhookList');
+      const countEl = document.getElementById('webhookCount');
+      const addBtn = document.getElementById('addWebhookBtn');
+
+      countEl.textContent = `(${urls.length}/5)`;
+      addBtn.disabled = urls.length >= 5;
+
+      if (urls.length === 0) {
+        list.innerHTML = '<div style="color: #999; font-size: 0.9em;">No webhook URLs configured</div>';
+        return;
+      }
+
+      list.innerHTML = urls
+        .map((url, i) => `
+          <div class="webhook-item">
+            <span class="webhook-index">#${i + 1}</span>
+            <span class="webhook-url">${htmlEscape(url)}</span>
+            <button class="webhook-remove" onclick="removeWebhook(${i})" ${urls.length <= 1 ? 'disabled title="Cannot remove the last URL"' : ''}>✕</button>
           </div>
         `)
         .join('');
@@ -615,7 +695,7 @@
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
     }
 
-    async function updateWebhook() {
+    async function addWebhook() {
       const input = document.getElementById('webhookInput');
       const webhook = input.value.trim();
       const statusDiv = document.getElementById('webhookUpdateStatus');
@@ -630,23 +710,32 @@
         return;
       }
 
-      statusDiv.innerHTML = `<div class="status info">⏳ Updating webhook...</div>`;
+      statusDiv.innerHTML = `<div class="status info">⏳ Adding webhook...</div>`;
 
-      const result = await apiCall('/config', 'POST', { discordWebhookUrl: webhook });
+      const result = await apiCall('/config', 'POST', { action: 'add', webhookUrl: webhook });
 
       if (result.error) {
-        if (result.error.includes('Vercel')) {
-          statusDiv.innerHTML = `<div class="status info">ℹ️ ${htmlEscape(result.error)}</div>`;
-        } else {
-          statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
-        }
+        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
       } else {
-        statusDiv.innerHTML = `<div class="status success">✓ Webhook URL updated successfully</div>`;
+        statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
         input.value = '';
-        setTimeout(() => {
-          statusDiv.innerHTML = '';
-          loadConfig();
-        }, 2000);
+        await loadConfig();
+        setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
+      }
+    }
+
+    async function removeWebhook(index) {
+      const statusDiv = document.getElementById('webhookUpdateStatus');
+      statusDiv.innerHTML = `<div class="status info">⏳ Removing webhook...</div>`;
+
+      const result = await apiCall('/config', 'POST', { action: 'remove', index });
+
+      if (result.error) {
+        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
+      } else {
+        statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
+        await loadConfig();
+        setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
       }
     }
 

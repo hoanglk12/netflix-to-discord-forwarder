@@ -1,4 +1,4 @@
-import { getConfigView, updateWebhookUrl } from '../src/api-service.js';
+import { getConfigView, addWebhookUrl, removeWebhookUrl } from '../src/api-service.js';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -19,7 +19,17 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const result = await updateWebhookUrl(body.discordWebhookUrl?.trim());
+      const { action } = body;
+
+      let result;
+      if (action === 'add') {
+        result = await addWebhookUrl(body.webhookUrl?.trim());
+      } else if (action === 'remove') {
+        result = await removeWebhookUrl(Number(body.index));
+      } else {
+        result = { status: 400, data: { error: 'Invalid action. Use "add" or "remove".' } };
+      }
+
       res.statusCode = result.status;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(result.data));
