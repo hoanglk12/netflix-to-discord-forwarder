@@ -490,11 +490,27 @@
         }
       }
 
+      // Display logs captured during the run
+      if (Array.isArray(data.logs) && data.logs.length > 0) {
+        renderRunLogs(data.logs);
+      }
+
       button.disabled = false;
       button.textContent = '▶ Run Now';
-      await loadLogs();
       await loadCheckpoint();
       await loadStatus();
+    }
+
+    function renderRunLogs(logs) {
+      const container = document.getElementById('logsContainer');
+      container.innerHTML = logs
+        .map(log => {
+          let className = 'log-info';
+          if (log.includes('ERROR')) className = 'log-error';
+          else if (log.includes('WARN')) className = 'log-warn';
+          return `<div class="log-line ${className}">${htmlEscape(log)}</div>`;
+        })
+        .join('');
     }
 
     function renderLastRunResult(data, note = '') {
@@ -527,11 +543,21 @@
         .map(([key, value]) => `
           <div class="checkpoint-item">
             <div class="checkpoint-key">${key}</div>
-            <div class="checkpoint-value">${htmlEscape(JSON.stringify(value, null, 2))}</div>
+            <div class="checkpoint-value">${htmlEscape(formatCheckpointValue(key, value))}</div>
           </div>
         `)
         .join('');
       container.innerHTML = `${badge}${body}`;
+    }
+
+    function formatCheckpointValue(key, value) {
+      if (typeof value === 'string' && (key.endsWith('At') || key.endsWith('RunAt'))) {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return formatTimestamp(date);
+        }
+      }
+      return JSON.stringify(value, null, 2);
     }
 
     function saveCachedLastRun(data) {
@@ -609,7 +635,11 @@
       const result = await apiCall('/config', 'POST', { discordWebhookUrl: webhook });
 
       if (result.error) {
-        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
+        if (result.error.includes('Vercel')) {
+          statusDiv.innerHTML = `<div class="status info">ℹ️ ${htmlEscape(result.error)}</div>`;
+        } else {
+          statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
+        }
       } else {
         statusDiv.innerHTML = `<div class="status success">✓ Webhook URL updated successfully</div>`;
         input.value = '';

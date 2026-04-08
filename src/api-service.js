@@ -81,15 +81,32 @@ export async function runNow() {
 
   const { config, logger } = await getCoreServices();
   const gmail = await getGmailService();
+
+  const runLogs = [];
+  const capturingLogger = {
+    info(message, details) {
+      runLogs.push(`INFO ${message}${details ? ` ${JSON.stringify(details)}` : ''}`);
+      return logger.info(message, details);
+    },
+    warn(message, details) {
+      runLogs.push(`WARN ${message}${details ? ` ${JSON.stringify(details)}` : ''}`);
+      return logger.warn(message, details);
+    },
+    error(message, details) {
+      runLogs.push(`ERROR ${message}${details ? ` ${JSON.stringify(details)}` : ''}`);
+      return logger.error(message, details);
+    },
+  };
+
   isRunning = true;
   try {
-    lastRunResult = await runPollCycle({ gmail, config, logger });
+    lastRunResult = await runPollCycle({ gmail, config, logger: capturingLogger });
     const checkpoint = await getCheckpointView();
-    return { status: 200, data: { ...lastRunResult, checkpoint } };
+    return { status: 200, data: { ...lastRunResult, logs: runLogs, checkpoint } };
   } catch (error) {
     return {
       status: 500,
-      data: { error: error.message },
+      data: { error: error.message, logs: runLogs },
     };
   } finally {
     isRunning = false;
@@ -104,7 +121,7 @@ export async function updateWebhookUrl(nextUrl) {
   if (process.env.VERCEL) {
     return {
       status: 501,
-      data: { error: 'Webhook update is disabled on Vercel. Update DISCORD_WEBHOOK_URL in Project Settings.' },
+      data: { error: 'On Vercel, update DISCORD_WEBHOOK_URL in your Vercel Project Settings > Environment Variables, then redeploy.' },
     };
   }
 
