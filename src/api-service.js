@@ -9,26 +9,19 @@ import { loadCheckpoint } from './checkpoint.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let servicesPromise = null;
 let gmailPromise = null;
 let isRunning = false;
 let lastRunResult = null;
 
-async function getCoreServices() {
-  if (!servicesPromise) {
-    servicesPromise = (async () => {
-      const config = loadConfig();
-      const logger = createLogger(config.logFilePath);
-      return { config, logger };
-    })();
-  }
-
-  return servicesPromise;
+function getCoreServices() {
+  const config = loadConfig();
+  const logger = createLogger(config.logFilePath);
+  return { config, logger };
 }
 
 async function getGmailService() {
-  const { config } = await getCoreServices();
   if (!gmailPromise) {
+    const { config } = getCoreServices();
     gmailPromise = authorizeGmail(config, { allowInteractive: false });
   }
   return gmailPromise;
@@ -114,13 +107,15 @@ export async function runNow() {
 }
 
 async function persistWebhookUrls(urls) {
+  const value = urls.join(',');
+  process.env.DISCORD_WEBHOOK_URL = value;
+
   if (process.env.VERCEL) return;
 
   const envPath = path.resolve(__dirname, '../.env');
   const raw = await fs.readFile(envPath, 'utf8');
   const lines = raw.split('\n');
   const key = 'DISCORD_WEBHOOK_URL';
-  const value = urls.join(',');
   const index = lines.findIndex((line) => line.startsWith(`${key}=`));
   if (index >= 0) {
     lines[index] = `${key}=${value}`;
