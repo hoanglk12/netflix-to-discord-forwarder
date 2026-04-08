@@ -37,6 +37,7 @@ async function saveBlobWebhookUrls(urls) {
     access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 
