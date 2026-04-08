@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@vercel/blob": "^2.3.3",
     "dotenv": "^16.4.5",
     "googleapis": "^144.0.0"
   }

@@ -13,15 +13,50 @@ let gmailPromise = null;
 let isRunning = false;
 let lastRunResult = null;
 
-function getCoreServices() {
+const WEBHOOK_BLOB_PATH = 'webhook-config.json';
+
+async function loadBlobWebhookUrls() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+  try {
+    const { list } = await import('@vercel/blob');
+    const { blobs } = await list({ prefix: WEBHOOK_BLOB_PATH });
+    if (blobs.length === 0) return null;
+    const res = await fetch(blobs[0].url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data.urls) ? data.urls : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveBlobWebhookUrls(urls) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+  const { put } = await import('@vercel/blob');
+  await put(WEBHOOK_BLOB_PATH, JSON.stringify({ urls }), {
+    access: 'public',
+    contentType: 'application/json',
+    addRandomSuffix: false,
+  });
+}
+
+async function getCoreServices() {
   const config = loadConfig();
+
+  if (process.env.VERCEL) {
+    const storedUrls = await loadBlobWebhookUrls();
+    if (storedUrls && storedUrls.length > 0) {
+      config.discordWebhookUrls = storedUrls;
+    }
+  }
+
   const logger = createLogger(config.logFilePath);
   return { config, logger };
 }
 
 async function getGmailService() {
   if (!gmailPromise) {
-    const { config } = getCoreServices();
+    const config = loadConfig();
     gmailPromise = authorizeGmail(config, { allowInteractive: false });
   }
   return gmailPromise;
@@ -110,7 +145,10 @@ async function persistWebhookUrls(urls) {
   const value = urls.join(',');
   process.env.DISCORD_WEBHOOK_URL = value;
 
-  if (process.env.VERCEL) return;
+  if (process.env.VERCEL) {
+    await saveBlobWebhookUrls(urls);
+    return;
+  }
 
   const envPath = path.resolve(__dirname, '../.env');
   const raw = await fs.readFile(envPath, 'utf8');
