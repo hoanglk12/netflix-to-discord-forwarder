@@ -8,7 +8,11 @@
     "auth": "node src/auth.js",
     "once": "node src/index.js",
     "ui": "node src/ui-server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "token:encode": "node -e \"process.stdout.write(require('fs').readFileSync('secrets/gmail-token.json').toString('base64') + '\\n')\"",
+    "token:upload": "node -e \"require('child_process').execSync('npx vercel env rm GMAIL_TOKEN_JSON_BASE64 production --yes',{stdio:'inherit'})\" && node -e \"process.stdout.write(require('fs').readFileSync('secrets/gmail-token.json').toString('base64'))\" | npx vercel env add GMAIL_TOKEN_JSON_BASE64 production",
+    "token:refresh": "npm run auth && npm run token:upload",
+    "deploy": "npx vercel deploy --prod"
   },
   "engines": {
     "node": ">=22"

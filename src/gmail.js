@@ -40,34 +40,35 @@ function tryParseToken(raw) {
   return null;
 }
 
+function isValidToken(parsed) {
+  return parsed && typeof parsed === 'object' && (parsed.refresh_token || parsed.access_token);
+}
+
 async function loadSavedToken(tokenPath) {
   if (process.env.GMAIL_TOKEN_JSON_BASE64?.trim()) {
     try {
       const decoded = Buffer.from(process.env.GMAIL_TOKEN_JSON_BASE64, 'base64').toString('utf8');
       const parsed = tryParseToken(decoded);
-      if (parsed) {
-        return parsed;
-      }
+      if (parsed && isValidToken(parsed)) return parsed;
     } catch {
       throw new Error('Invalid GMAIL_TOKEN_JSON_BASE64 format. Expected base64 encoded JSON.');
     }
+    throw new Error('GMAIL_TOKEN_JSON_BASE64 does not contain a valid OAuth token (missing refresh_token/access_token).');
   }
 
   if (process.env.GMAIL_TOKEN_JSON?.trim()) {
     const parsed = tryParseToken(process.env.GMAIL_TOKEN_JSON);
-    if (!parsed) {
-      throw new Error('Invalid GMAIL_TOKEN_JSON format. Expected valid JSON object.');
-    }
+    if (!parsed) throw new Error('Invalid GMAIL_TOKEN_JSON format. Expected valid JSON object.');
+    if (!isValidToken(parsed)) throw new Error('GMAIL_TOKEN_JSON does not contain a valid OAuth token (missing refresh_token/access_token).');
     return parsed;
   }
 
   try {
     const raw = await fs.readFile(tokenPath, 'utf8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return isValidToken(parsed) ? parsed : null;
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      return null;
-    }
+    if (error.code === 'ENOENT') return null;
     throw error;
   }
 }
@@ -83,14 +84,20 @@ async function saveToken(tokenPath, client) {
   await fs.writeFile(tokenPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
+function buildOAuth2Client(savedToken) {
+  const oauth2 = new google.auth.OAuth2(savedToken.client_id, savedToken.client_secret);
+  oauth2.setCredentials({
+    refresh_token: savedToken.refresh_token,
+    access_token: savedToken.access_token,
+    expiry_date: savedToken.expiry_date,
+  });
+  return oauth2;
+}
+
 async function createOAuthClient(config, allowInteractive) {
   const savedToken = await loadSavedToken(config.gmailTokenPath);
   if (savedToken) {
-    const auth = new google.auth.GoogleAuth({
-      credentials: savedToken,
-      scopes: SCOPES,
-    });
-    return auth.getClient();
+    return buildOAuth2Client(savedToken);
   }
 
   if (!allowInteractive) {
