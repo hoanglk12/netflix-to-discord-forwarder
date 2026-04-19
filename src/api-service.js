@@ -58,7 +58,18 @@ async function getCoreServices() {
 async function getGmailService() {
   if (!gmailPromise) {
     const config = loadConfig();
-    gmailPromise = authorizeGmail(config, { allowInteractive: false });
+    gmailPromise = authorizeGmail(config, { allowInteractive: false }).catch((err) => {
+      gmailPromise = null;
+      const isInvalidGrant = err.message?.includes('invalid_grant') || err.code === 'invalid_grant';
+      if (isInvalidGrant) {
+        throw new Error(
+          'Gmail token expired or revoked (invalid_grant). ' +
+          'Re-run `npm run auth` locally to get a fresh token, ' +
+          'then update GMAIL_TOKEN_JSON in Vercel environment variables.',
+        );
+      }
+      throw err;
+    });
   }
   return gmailPromise;
 }
