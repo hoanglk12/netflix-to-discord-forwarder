@@ -32,10 +32,11 @@ function getPositiveInt(name, fallback) {
 
 export const MAX_WEBHOOK_URLS = 5;
 
-function parseWebhookUrls() {
+function parseWebhookUrls({ required = true } = {}) {
   const primary = process.env.DISCORD_WEBHOOK_URL?.trim();
   if (!primary) {
-    throw new Error('Missing required environment variable: DISCORD_WEBHOOK_URL');
+    if (required) throw new Error('Missing required environment variable: DISCORD_WEBHOOK_URL');
+    return [];
   }
 
   const urls = primary
@@ -44,13 +45,14 @@ function parseWebhookUrls() {
     .filter((u) => u.startsWith('https://'));
 
   if (urls.length === 0) {
-    throw new Error('DISCORD_WEBHOOK_URL contains no valid https:// URLs');
+    if (required) throw new Error('DISCORD_WEBHOOK_URL contains no valid https:// URLs');
+    return [];
   }
 
   return urls.slice(0, MAX_WEBHOOK_URLS);
 }
 
-export function loadConfig() {
+export function loadConfig({ requireWebhook = true } = {}) {
   const senderFilter = process.env.GMAIL_SENDER_FILTER?.trim() || 'netflix.com';
   const queryOverride = process.env.GMAIL_QUERY?.trim();
   const gmailTokenJson = process.env.GMAIL_TOKEN_JSON?.trim() || null;
@@ -68,7 +70,7 @@ export function loadConfig() {
     gmailTokenPath,
     gmailCredentialsJson,
     gmailTokenJson,
-    discordWebhookUrls: parseWebhookUrls(),
+    discordWebhookUrls: parseWebhookUrls({ required: requireWebhook }),
     pollIntervalMs: getPositiveInt('POLL_INTERVAL_MS', 60000),
     gmailSenderFilter: senderFilter,
     gmailQuery: queryOverride || 'in:inbox newer_than:1d',

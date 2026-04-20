@@ -19,9 +19,13 @@ let isRunning = false;
 let lastRunResult = null;
 
 async function initializeApp() {
-  config = loadConfig();
+  config = loadConfig({ requireWebhook: false });
   logger = createLogger(config.logFilePath);
-  gmail = await authorizeGmail(config, { allowInteractive: false });
+  try {
+    gmail = await authorizeGmail(config, { allowInteractive: false });
+  } catch {
+    gmail = null;
+  }
 }
 
 async function loadCheckpoint() {
@@ -100,8 +104,8 @@ async function handleApiRequest(pathname, method, body) {
 
       if (action === 'remove') {
         const index = Number(data.index);
-        if (config.discordWebhookUrls.length <= 1) {
-          return { status: 400, data: { error: 'Cannot remove the last webhook URL' } };
+        if (config.discordWebhookUrls.length <= 0) {
+          return { status: 400, data: { error: 'No webhook URLs to remove' } };
         }
         if (index < 0 || index >= config.discordWebhookUrls.length) {
           return { status: 400, data: { error: 'Invalid webhook index' } };
@@ -121,6 +125,9 @@ async function handleApiRequest(pathname, method, body) {
   }
 
   if (pathname === '/api/run' && method === 'POST') {
+    if (config.discordWebhookUrls.length === 0) {
+      return { status: 400, data: { error: 'No Discord webhook URLs configured. Add one via the config panel first.' } };
+    }
     if (isRunning) {
       return { status: 409, data: { error: 'Poll already running' } };
     }

@@ -63,6 +63,8 @@ async function loadSavedToken(tokenPath) {
     return parsed;
   }
 
+  if (!tokenPath) return null;
+
   try {
     const raw = await fs.readFile(tokenPath, 'utf8');
     const parsed = JSON.parse(raw);
