@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+const CHECKPOINT_BLOB_PATH = 'checkpoint-state.json';
+
 let inMemoryCheckpoint = null;
 
 function getLocalDayKey(now = new Date()) {
@@ -58,12 +60,48 @@ function normalizeState(raw, maxIds, dayKey) {
   return normalized;
 }
 
+async function loadBlobCheckpoint() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+
+  try {
+    const { list } = await import('@vercel/blob');
+    const { blobs } = await list({ prefix: CHECKPOINT_BLOB_PATH });
+    if (blobs.length === 0) return null;
+    const res = await fetch(blobs[0].url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function saveBlobCheckpoint(state) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+
+  try {
+    const { put } = await import('@vercel/blob');
+    await put(CHECKPOINT_BLOB_PATH, JSON.stringify(state), {
+      access: 'public',
+      contentType: 'application/json',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    });
+  } catch {
+    // Best-effort: keep the in-memory copy even if the Blob write fails.
+  }
+}
+
 export async function loadCheckpoint(filePath, maxIds) {
   const dayKey = getLocalDayKey();
 
   if (process.env.VERCEL) {
+    // Hydrate from Blob storage at most once per warm instance so that state
+    // (e.g. lastSentDiscordMessages) survives cold starts across separate
+    // /api/run and /api/delete-messages invocations, without hitting Blob's
+    // "list" endpoint on every 5s dashboard poll of this same instance.
     if (!inMemoryCheckpoint) {
-      inMemoryCheckpoint = createEmptyState(dayKey);
+      const blobState = await loadBlobCheckpoint();
+      inMemoryCheckpoint = blobState || createEmptyState(dayKey);
     }
     return normalizeState(inMemoryCheckpoint, maxIds, dayKey);
   }
@@ -82,6 +120,7 @@ export async function loadCheckpoint(filePath, maxIds) {
 export async function saveCheckpoint(filePath, state) {
   if (process.env.VERCEL) {
     inMemoryCheckpoint = state;
+    await saveBlobCheckpoint(state);
     return;
   }
 

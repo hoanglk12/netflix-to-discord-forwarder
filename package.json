@@ -20,6 +20,7 @@
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
     "@vercel/blob": "^2.3.3",
+    "@vercel/edge-config": "^1.4.3",
     "dotenv": "^17.4.2",
     "googleapis": "^171.4.0"
   }

@@ -14,47 +14,76 @@ let gmailPromise = null;
 let isRunning = false;
 let lastRunResult = null;
 
-const WEBHOOK_BLOB_PATH = 'webhook-config.json';
+const WEBHOOK_EDGE_CONFIG_KEY = 'webhookUrls';
 const WEBHOOK_CACHE_TTL_MS = 30000;
 
 let webhookCache = null;
 let webhookCacheAt = 0;
 
-async function loadBlobWebhookUrls() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
-
-  if (webhookCache && Date.now() - webhookCacheAt < WEBHOOK_CACHE_TTL_MS) {
-    return webhookCache;
-  }
-
+// EDGE_CONFIG is a connection string like https://edge-config.vercel.com/<id>?token=<read-token>
+function getEdgeConfigId() {
+  const connection = process.env.EDGE_CONFIG;
+  if (!connection) return null;
   try {
-    const { list } = await import('@vercel/blob');
-    const { blobs } = await list({ prefix: WEBHOOK_BLOB_PATH });
-    if (blobs.length === 0) return null;
-    const res = await fetch(blobs[0].url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const urls = Array.isArray(data.urls) ? data.urls : null;
-    if (urls) {
-      webhookCache = urls;
-      webhookCacheAt = Date.now();
-    }
-    return urls;
+    return new URL(connection).pathname.split('/').filter(Boolean)[0] || null;
   } catch {
     return null;
   }
 }
 
-async function saveBlobWebhookUrls(urls) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
-  const { put } = await import('@vercel/blob');
-  await put(WEBHOOK_BLOB_PATH, JSON.stringify({ urls }), {
-    access: 'public',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
+async function loadEdgeConfigWebhookUrls() {
+  if (!process.env.EDGE_CONFIG) return null;
+
+  if (webhookCache && Date.now() - webhookCacheAt < WEBHOOK_CACHE_TTL_MS) {
+    // Return a copy: callers (addWebhookUrl/removeWebhookUrl) mutate the
+    // array in place, and that must not silently corrupt the shared cache.
+    return [...webhookCache];
+  }
+
+  try {
+    const { get } = await import('@vercel/edge-config');
+    const urls = await get(WEBHOOK_EDGE_CONFIG_KEY);
+    if (!Array.isArray(urls) || urls.length === 0) return null;
+    webhookCache = [...urls];
+    webhookCacheAt = Date.now();
+    return [...webhookCache];
+  } catch {
+    return null;
+  }
+}
+
+// Edge Config reads go through the low-latency edge SDK, but writes require
+// the Vercel management REST API (a VERCEL_API_TOKEN with account/team access).
+async function saveEdgeConfigWebhookUrls(urls) {
+  const edgeConfigId = getEdgeConfigId();
+  if (!edgeConfigId || !process.env.VERCEL_API_TOKEN) {
+    throw new Error(
+      'Cannot save webhook URLs: Edge Config is not fully configured. ' +
+      'Connect an Edge Config store to this project (sets EDGE_CONFIG) and add a ' +
+      'VERCEL_API_TOKEN environment variable, then redeploy.',
+    );
+  }
+
+  const params = new URLSearchParams();
+  if (process.env.VERCEL_TEAM_ID) params.set('teamId', process.env.VERCEL_TEAM_ID);
+
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items?${params}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      items: [{ operation: 'upsert', key: WEBHOOK_EDGE_CONFIG_KEY, value: urls }],
+    }),
   });
-  webhookCache = urls;
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Failed to save webhook URLs to Edge Config (${res.status}): ${detail}`);
+  }
+
+  webhookCache = [...urls];
   webhookCacheAt = Date.now();
 }
 
@@ -62,7 +91,7 @@ async function getCoreServices({ withWebhooks = false } = {}) {
   const config = loadConfig();
 
   if (withWebhooks && process.env.VERCEL) {
-    const storedUrls = await loadBlobWebhookUrls();
+    const storedUrls = await loadEdgeConfigWebhookUrls();
     if (storedUrls && storedUrls.length > 0) {
       config.discordWebhookUrls = storedUrls;
     }
@@ -217,7 +246,7 @@ async function persistWebhookUrls(urls) {
   process.env.DISCORD_WEBHOOK_URL = value;
 
   if (process.env.VERCEL) {
-    await saveBlobWebhookUrls(urls);
+    await saveEdgeConfigWebhookUrls(urls);
     return;
   }
 
