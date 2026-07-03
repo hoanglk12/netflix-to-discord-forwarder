@@ -14,9 +14,18 @@ let isRunning = false;
 let lastRunResult = null;
 
 const WEBHOOK_BLOB_PATH = 'webhook-config.json';
+const WEBHOOK_CACHE_TTL_MS = 30000;
+
+let webhookCache = null;
+let webhookCacheAt = 0;
 
 async function loadBlobWebhookUrls() {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+
+  if (webhookCache && Date.now() - webhookCacheAt < WEBHOOK_CACHE_TTL_MS) {
+    return webhookCache;
+  }
+
   try {
     const { list } = await import('@vercel/blob');
     const { blobs } = await list({ prefix: WEBHOOK_BLOB_PATH });
@@ -24,7 +33,12 @@ async function loadBlobWebhookUrls() {
     const res = await fetch(blobs[0].url);
     if (!res.ok) return null;
     const data = await res.json();
-    return Array.isArray(data.urls) ? data.urls : null;
+    const urls = Array.isArray(data.urls) ? data.urls : null;
+    if (urls) {
+      webhookCache = urls;
+      webhookCacheAt = Date.now();
+    }
+    return urls;
   } catch {
     return null;
   }
@@ -39,12 +53,14 @@ async function saveBlobWebhookUrls(urls) {
     addRandomSuffix: false,
     allowOverwrite: true,
   });
+  webhookCache = urls;
+  webhookCacheAt = Date.now();
 }
 
-async function getCoreServices() {
+async function getCoreServices({ withWebhooks = false } = {}) {
   const config = loadConfig();
 
-  if (process.env.VERCEL) {
+  if (withWebhooks && process.env.VERCEL) {
     const storedUrls = await loadBlobWebhookUrls();
     if (storedUrls && storedUrls.length > 0) {
       config.discordWebhookUrls = storedUrls;
@@ -75,7 +91,7 @@ async function getGmailService() {
 }
 
 export async function getConfigView() {
-  const { config } = await getCoreServices();
+  const { config } = await getCoreServices({ withWebhooks: true });
   return {
     gmailQuery: config.gmailQuery,
     gmailSenderFilter: config.gmailSenderFilter,
@@ -119,7 +135,7 @@ export async function runNow() {
     return { status: 409, data: { error: 'Poll already running' } };
   }
 
-  const { config, logger } = await getCoreServices();
+  const { config, logger } = await getCoreServices({ withWebhooks: true });
   const gmail = await getGmailService();
 
   const runLogs = [];
@@ -180,7 +196,7 @@ export async function addWebhookUrl(nextUrl) {
     return { status: 400, data: { error: 'Invalid webhook URL. Must start with https://' } };
   }
 
-  const { config } = await getCoreServices();
+  const { config } = await getCoreServices({ withWebhooks: true });
   const urls = config.discordWebhookUrls;
 
   if (urls.length >= MAX_WEBHOOK_URLS) {
@@ -198,7 +214,7 @@ export async function addWebhookUrl(nextUrl) {
 }
 
 export async function removeWebhookUrl(index) {
-  const { config } = await getCoreServices();
+  const { config } = await getCoreServices({ withWebhooks: true });
   const urls = config.discordWebhookUrls;
 
   if (urls.length <= 1) {

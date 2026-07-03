@@ -679,6 +679,16 @@
       ]);
     }
 
+    // Config rarely changes and each fetch costs a Vercel Blob "Advanced Request";
+    // poll only the fast-changing panels to stay well under the free-tier quota.
+    async function refreshPolling() {
+      await Promise.all([
+        loadStatus(),
+        loadLogs(),
+        loadCheckpoint(),
+      ]);
+    }
+
     function htmlEscape(text) {
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
       return text.replace(/[&<>"']/g, m => map[m]);
@@ -745,7 +755,7 @@
     restoreLastRunFromCache();
     refreshAll();
     // Refresh every 5 seconds
-    setInterval(refreshAll, 5000);
+    setInterval(refreshPolling, 5000);
   </script>
 </body>
 </html>
