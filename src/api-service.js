@@ -5,7 +5,8 @@ import { loadConfig, MAX_WEBHOOK_URLS } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
-import { loadCheckpoint } from './checkpoint.js';
+import { loadCheckpoint, saveCheckpoint } from './checkpoint.js';
+import { deleteDiscordMessage } from './discord.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -167,6 +168,48 @@ export async function runNow() {
   } finally {
     isRunning = false;
   }
+}
+
+export async function deleteAllSentMessages() {
+  const { config, logger } = await getCoreServices();
+  const checkpoint = await loadCheckpoint(config.checkpointPath, config.checkpointMaxIds);
+  const messages = checkpoint.lastSentDiscordMessages || [];
+
+  if (messages.length === 0) {
+    return { status: 200, data: { noMessages: true, deleted: 0, failed: 0, message: 'No message to delete' } };
+  }
+
+  const remaining = [];
+  let deleted = 0;
+  let failed = 0;
+
+  for (const entry of messages) {
+    const { webhookUrl, messageId } = entry;
+    if (!webhookUrl || !messageId) continue;
+
+    try {
+      await deleteDiscordMessage(webhookUrl, messageId);
+      deleted += 1;
+    } catch (error) {
+      failed += 1;
+      remaining.push(entry);
+      await logger.warn('Failed to delete Discord message', { messageId, error: error.message });
+    }
+  }
+
+  await saveCheckpoint(config.checkpointPath, { ...checkpoint, lastSentDiscordMessages: remaining });
+
+  return {
+    status: 200,
+    data: {
+      noMessages: false,
+      deleted,
+      failed,
+      message: failed > 0
+        ? `Deleted ${deleted} message(s), ${failed} failed and will be retried later`
+        : `Deleted ${deleted} message(s)`,
+    },
+  };
 }
 
 async function persistWebhookUrls(urls) {

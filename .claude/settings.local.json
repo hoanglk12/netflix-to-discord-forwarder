@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codebase-memory-mcp__list_projects",
+      "mcp__codebase-memory-mcp__index_status"
+    ]
+  }
+}

@@ -7,6 +7,7 @@ import { loadConfig, MAX_WEBHOOK_URLS } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
+import { deleteAllSentMessages } from './api-service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '../public');
@@ -143,6 +144,14 @@ async function handleApiRequest(pathname, method, body) {
       };
     } finally {
       isRunning = false;
+    }
+  }
+
+  if (pathname === '/api/delete-messages' && method === 'POST') {
+    try {
+      return await deleteAllSentMessages();
+    } catch (error) {
+      return { status: 500, data: { error: error.message } };
     }
   }
 
