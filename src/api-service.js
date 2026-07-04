@@ -20,12 +20,18 @@ const WEBHOOK_CACHE_TTL_MS = 30000;
 let webhookCache = null;
 let webhookCacheAt = 0;
 
-function hasRedisConfig() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+// The Vercel<->Upstash connection sometimes provisions the older "Vercel KV"
+// env var names (KV_REST_API_URL/TOKEN) instead of UPSTASH_REDIS_REST_URL/TOKEN,
+// depending on how the integration was added. Accept either.
+function getRedisCredentials() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  return url && token ? { url, token } : null;
 }
 
 async function loadRedisWebhookUrls() {
-  if (!hasRedisConfig()) return null;
+  const credentials = getRedisCredentials();
+  if (!credentials) return null;
 
   if (webhookCache && Date.now() - webhookCacheAt < WEBHOOK_CACHE_TTL_MS) {
     // Return a copy: callers (addWebhookUrl/removeWebhookUrl) mutate the
@@ -35,7 +41,7 @@ async function loadRedisWebhookUrls() {
 
   try {
     const { Redis } = await import('@upstash/redis');
-    const redis = Redis.fromEnv();
+    const redis = new Redis(credentials);
     const urls = await redis.get(WEBHOOK_REDIS_KEY);
     if (!Array.isArray(urls) || urls.length === 0) return null;
     webhookCache = [...urls];
@@ -47,16 +53,18 @@ async function loadRedisWebhookUrls() {
 }
 
 async function saveRedisWebhookUrls(urls) {
-  if (!hasRedisConfig()) {
+  const credentials = getRedisCredentials();
+  if (!credentials) {
     throw new Error(
       'Cannot save webhook URLs: Upstash Redis is not configured. ' +
       'Connect the Upstash Redis integration to this project (sets ' +
-      'UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN), then redeploy.',
+      'UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN or KV_REST_API_URL / ' +
+      'KV_REST_API_TOKEN), then redeploy.',
     );
   }
 
   const { Redis } = await import('@upstash/redis');
-  const redis = Redis.fromEnv();
+  const redis = new Redis(credentials);
   await redis.set(WEBHOOK_REDIS_KEY, urls);
 
   webhookCache = [...urls];

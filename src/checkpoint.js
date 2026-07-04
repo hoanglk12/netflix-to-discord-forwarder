@@ -60,16 +60,22 @@ function normalizeState(raw, maxIds, dayKey) {
   return normalized;
 }
 
-function hasRedisConfig() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+// The Vercel<->Upstash connection sometimes provisions the older "Vercel KV"
+// env var names (KV_REST_API_URL/TOKEN) instead of UPSTASH_REDIS_REST_URL/TOKEN,
+// depending on how the integration was added. Accept either.
+function getRedisCredentials() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  return url && token ? { url, token } : null;
 }
 
 async function loadRedisCheckpoint() {
-  if (!hasRedisConfig()) return null;
+  const credentials = getRedisCredentials();
+  if (!credentials) return null;
 
   try {
     const { Redis } = await import('@upstash/redis');
-    const redis = Redis.fromEnv();
+    const redis = new Redis(credentials);
     return await redis.get(CHECKPOINT_REDIS_KEY);
   } catch {
     return null;
@@ -77,11 +83,12 @@ async function loadRedisCheckpoint() {
 }
 
 async function saveRedisCheckpoint(state) {
-  if (!hasRedisConfig()) return;
+  const credentials = getRedisCredentials();
+  if (!credentials) return;
 
   try {
     const { Redis } = await import('@upstash/redis');
-    const redis = Redis.fromEnv();
+    const redis = new Redis(credentials);
     await redis.set(CHECKPOINT_REDIS_KEY, state);
   } catch {
     // Best-effort: keep the in-memory copy even if the Redis write fails.
