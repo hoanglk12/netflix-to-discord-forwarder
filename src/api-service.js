@@ -14,25 +14,18 @@ let gmailPromise = null;
 let isRunning = false;
 let lastRunResult = null;
 
-const WEBHOOK_EDGE_CONFIG_KEY = 'webhookUrls';
+const WEBHOOK_REDIS_KEY = 'netflix-forwarder:webhook-urls';
 const WEBHOOK_CACHE_TTL_MS = 30000;
 
 let webhookCache = null;
 let webhookCacheAt = 0;
 
-// EDGE_CONFIG is a connection string like https://edge-config.vercel.com/<id>?token=<read-token>
-function getEdgeConfigId() {
-  const connection = process.env.EDGE_CONFIG;
-  if (!connection) return null;
-  try {
-    return new URL(connection).pathname.split('/').filter(Boolean)[0] || null;
-  } catch {
-    return null;
-  }
+function hasRedisConfig() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
 }
 
-async function loadEdgeConfigWebhookUrls() {
-  if (!process.env.EDGE_CONFIG) return null;
+async function loadRedisWebhookUrls() {
+  if (!hasRedisConfig()) return null;
 
   if (webhookCache && Date.now() - webhookCacheAt < WEBHOOK_CACHE_TTL_MS) {
     // Return a copy: callers (addWebhookUrl/removeWebhookUrl) mutate the
@@ -41,8 +34,9 @@ async function loadEdgeConfigWebhookUrls() {
   }
 
   try {
-    const { get } = await import('@vercel/edge-config');
-    const urls = await get(WEBHOOK_EDGE_CONFIG_KEY);
+    const { Redis } = await import('@upstash/redis');
+    const redis = Redis.fromEnv();
+    const urls = await redis.get(WEBHOOK_REDIS_KEY);
     if (!Array.isArray(urls) || urls.length === 0) return null;
     webhookCache = [...urls];
     webhookCacheAt = Date.now();
@@ -52,36 +46,18 @@ async function loadEdgeConfigWebhookUrls() {
   }
 }
 
-// Edge Config reads go through the low-latency edge SDK, but writes require
-// the Vercel management REST API (a VERCEL_API_TOKEN with account/team access).
-async function saveEdgeConfigWebhookUrls(urls) {
-  const edgeConfigId = getEdgeConfigId();
-  if (!edgeConfigId || !process.env.VERCEL_API_TOKEN) {
+async function saveRedisWebhookUrls(urls) {
+  if (!hasRedisConfig()) {
     throw new Error(
-      'Cannot save webhook URLs: Edge Config is not fully configured. ' +
-      'Connect an Edge Config store to this project (sets EDGE_CONFIG) and add a ' +
-      'VERCEL_API_TOKEN environment variable, then redeploy.',
+      'Cannot save webhook URLs: Upstash Redis is not configured. ' +
+      'Connect the Upstash Redis integration to this project (sets ' +
+      'UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN), then redeploy.',
     );
   }
 
-  const params = new URLSearchParams();
-  if (process.env.VERCEL_TEAM_ID) params.set('teamId', process.env.VERCEL_TEAM_ID);
-
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items?${params}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      items: [{ operation: 'upsert', key: WEBHOOK_EDGE_CONFIG_KEY, value: urls }],
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Failed to save webhook URLs to Edge Config (${res.status}): ${detail}`);
-  }
+  const { Redis } = await import('@upstash/redis');
+  const redis = Redis.fromEnv();
+  await redis.set(WEBHOOK_REDIS_KEY, urls);
 
   webhookCache = [...urls];
   webhookCacheAt = Date.now();
@@ -91,7 +67,7 @@ async function getCoreServices({ withWebhooks = false } = {}) {
   const config = loadConfig();
 
   if (withWebhooks && process.env.VERCEL) {
-    const storedUrls = await loadEdgeConfigWebhookUrls();
+    const storedUrls = await loadRedisWebhookUrls();
     if (storedUrls && storedUrls.length > 0) {
       config.discordWebhookUrls = storedUrls;
     }
@@ -246,7 +222,7 @@ async function persistWebhookUrls(urls) {
   process.env.DISCORD_WEBHOOK_URL = value;
 
   if (process.env.VERCEL) {
-    await saveEdgeConfigWebhookUrls(urls);
+    await saveRedisWebhookUrls(urls);
     return;
   }
 

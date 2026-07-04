@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const CHECKPOINT_BLOB_PATH = 'checkpoint-state.json';
+const CHECKPOINT_REDIS_KEY = 'netflix-forwarder:checkpoint-state';
 
 let inMemoryCheckpoint = null;
 
@@ -60,34 +60,31 @@ function normalizeState(raw, maxIds, dayKey) {
   return normalized;
 }
 
-async function loadBlobCheckpoint() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+function hasRedisConfig() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+async function loadRedisCheckpoint() {
+  if (!hasRedisConfig()) return null;
 
   try {
-    const { list } = await import('@vercel/blob');
-    const { blobs } = await list({ prefix: CHECKPOINT_BLOB_PATH });
-    if (blobs.length === 0) return null;
-    const res = await fetch(blobs[0].url);
-    if (!res.ok) return null;
-    return await res.json();
+    const { Redis } = await import('@upstash/redis');
+    const redis = Redis.fromEnv();
+    return await redis.get(CHECKPOINT_REDIS_KEY);
   } catch {
     return null;
   }
 }
 
-async function saveBlobCheckpoint(state) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+async function saveRedisCheckpoint(state) {
+  if (!hasRedisConfig()) return;
 
   try {
-    const { put } = await import('@vercel/blob');
-    await put(CHECKPOINT_BLOB_PATH, JSON.stringify(state), {
-      access: 'public',
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    const { Redis } = await import('@upstash/redis');
+    const redis = Redis.fromEnv();
+    await redis.set(CHECKPOINT_REDIS_KEY, state);
   } catch {
-    // Best-effort: keep the in-memory copy even if the Blob write fails.
+    // Best-effort: keep the in-memory copy even if the Redis write fails.
   }
 }
 
@@ -95,13 +92,13 @@ export async function loadCheckpoint(filePath, maxIds) {
   const dayKey = getLocalDayKey();
 
   if (process.env.VERCEL) {
-    // Hydrate from Blob storage at most once per warm instance so that state
-    // (e.g. lastSentDiscordMessages) survives cold starts across separate
-    // /api/run and /api/delete-messages invocations, without hitting Blob's
-    // "list" endpoint on every 5s dashboard poll of this same instance.
+    // Hydrate from Redis at most once per warm instance so that state (e.g.
+    // lastSentDiscordMessages) survives cold starts across separate
+    // /api/run and /api/delete-messages invocations, without issuing a
+    // Redis command on every 5s dashboard poll of this same instance.
     if (!inMemoryCheckpoint) {
-      const blobState = await loadBlobCheckpoint();
-      inMemoryCheckpoint = blobState || createEmptyState(dayKey);
+      const redisState = await loadRedisCheckpoint();
+      inMemoryCheckpoint = redisState || createEmptyState(dayKey);
     }
     return normalizeState(inMemoryCheckpoint, maxIds, dayKey);
   }
@@ -120,7 +117,7 @@ export async function loadCheckpoint(filePath, maxIds) {
 export async function saveCheckpoint(filePath, state) {
   if (process.env.VERCEL) {
     inMemoryCheckpoint = state;
-    await saveBlobCheckpoint(state);
+    await saveRedisCheckpoint(state);
     return;
   }
 
