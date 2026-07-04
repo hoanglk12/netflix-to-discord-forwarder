@@ -2,8 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const CHECKPOINT_REDIS_KEY = 'netflix-forwarder:checkpoint-state';
+const CHECKPOINT_CACHE_TTL_MS = 10000;
 
 let inMemoryCheckpoint = null;
+let inMemoryCheckpointAt = 0;
 
 function getLocalDayKey(now = new Date()) {
   const year = now.getFullYear();
@@ -101,13 +103,17 @@ export async function loadCheckpoint(filePath, maxIds) {
   const dayKey = getLocalDayKey();
 
   if (process.env.VERCEL) {
-    // Hydrate from Redis at most once per warm instance so that state (e.g.
-    // lastSentDiscordMessages) survives cold starts across separate
-    // /api/run and /api/delete-messages invocations, without issuing a
-    // Redis command on every 5s dashboard poll of this same instance.
-    if (!inMemoryCheckpoint) {
+    // Vercel keeps multiple warm instances alive behind one domain (e.g. the
+    // dashboard's 5s poll loop). A "hydrate once, cache forever" strategy
+    // would let an instance serve a permanently stale snapshot whenever a
+    // *different* instance is the one that writes (e.g. /api/run). Use a
+    // short TTL instead: fresh enough to see cross-instance writes quickly,
+    // long enough to avoid a Redis round trip on every single poll.
+    const isStale = !inMemoryCheckpoint || Date.now() - inMemoryCheckpointAt >= CHECKPOINT_CACHE_TTL_MS;
+    if (isStale) {
       const redisState = await loadRedisCheckpoint();
       inMemoryCheckpoint = redisState || createEmptyState(dayKey);
+      inMemoryCheckpointAt = Date.now();
     }
     return normalizeState(inMemoryCheckpoint, maxIds, dayKey);
   }
@@ -126,6 +132,7 @@ export async function loadCheckpoint(filePath, maxIds) {
 export async function saveCheckpoint(filePath, state) {
   if (process.env.VERCEL) {
     inMemoryCheckpoint = state;
+    inMemoryCheckpointAt = Date.now();
     await saveRedisCheckpoint(state);
     return;
   }
