@@ -77,7 +77,8 @@ async function loadRedisCheckpoint() {
     const { Redis } = await import('@upstash/redis');
     const redis = new Redis(credentials);
     return await redis.get(CHECKPOINT_REDIS_KEY);
-  } catch {
+  } catch (error) {
+    console.error('Failed to load checkpoint from Redis', error);
     return null;
   }
 }
@@ -90,8 +91,9 @@ async function saveRedisCheckpoint(state) {
     const { Redis } = await import('@upstash/redis');
     const redis = new Redis(credentials);
     await redis.set(CHECKPOINT_REDIS_KEY, state);
-  } catch {
+  } catch (error) {
     // Best-effort: keep the in-memory copy even if the Redis write fails.
+    console.error('Failed to save checkpoint to Redis', error);
   }
 }
 

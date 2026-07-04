@@ -47,7 +47,8 @@ async function loadRedisWebhookUrls() {
     webhookCache = [...urls];
     webhookCacheAt = Date.now();
     return [...webhookCache];
-  } catch {
+  } catch (error) {
+    console.error('Failed to load webhook URLs from Redis', error);
     return null;
   }
 }
