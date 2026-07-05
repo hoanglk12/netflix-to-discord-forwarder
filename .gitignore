@@ -7,3 +7,4 @@ coverage/
 secrets/
 registration_output.txt
 .vercel
+.claude/settings.local.json
