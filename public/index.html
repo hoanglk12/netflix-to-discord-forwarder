@@ -11,204 +11,278 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --steel-light: #c7ccd0;
+      --steel: #9aa1a6;
+      --steel-dark: #6b7075;
+      --chassis-line: rgba(255, 255, 255, 0.35);
+      --well: #2e3236;
+      --well-raised: #383d42;
+      --well-line: #454a4f;
+      --label: #f2ecdd;
+      --label-dim: #b9c0c4;
+      --ink: #23262a;
+      --ink-dim: #52585d;
+      --copper: #c1652e;
+      --copper-bright: #e08a4d;
+      --blurple: #5865f2;
+      --signal-red: #d64545;
+      --signal-red-well: #e57373;
+      --signal-green: #4c9a5b;
+      --signal-green-well: #74c686;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: var(--font-body);
+      color: var(--ink);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 28px 20px;
+      background-color: var(--steel);
+      background-image:
+        repeating-linear-gradient(100deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 5px),
+        linear-gradient(160deg, var(--steel-light) 0%, var(--steel) 45%, var(--steel-dark) 100%);
     }
 
     .container {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 900px;
+      background: var(--steel-light);
+      border: 1px solid var(--steel-dark);
+      border-radius: 6px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--chassis-line);
+      max-width: 940px;
       width: 100%;
       overflow: hidden;
+      position: relative;
     }
 
+    /* Faceplate header */
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 40px 30px;
-      text-align: center;
+      background: var(--well);
+      color: var(--label);
+      padding: 22px 28px;
+      position: relative;
+      border-bottom: 3px solid var(--copper);
+    }
+
+    .header::before,
+    .header::after {
+      content: '';
+      position: absolute;
+      top: 12px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--label-dim);
+      box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
+    }
+
+    .header::before { left: 12px; }
+    .header::after { right: 12px; }
+
+    .header .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.7em;
+      letter-spacing: 0.18em;
+      color: var(--copper-bright);
+      text-transform: uppercase;
+      margin-bottom: 6px;
     }
 
     .header h1 {
-      font-size: 2em;
-      margin-bottom: 8px;
+      font-size: 1.5em;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
     }
 
     .header p {
-      font-size: 0.95em;
-      opacity: 0.9;
+      font-size: 0.85em;
+      color: var(--label-dim);
+      margin-top: 4px;
+      font-family: var(--font-mono);
     }
 
     .content {
-      padding: 30px;
+      padding: 26px 28px 30px;
     }
 
     .section {
-      margin-bottom: 30px;
+      margin-bottom: 26px;
     }
 
     .section-title {
-      font-size: 1.3em;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: #333;
-      border-bottom: 2px solid #f0f0f0;
-      padding-bottom: 10px;
+      font-size: 0.78em;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--ink-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--steel-dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
+    .section-title::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 1px;
+      background: var(--copper);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+
+    /* Recessed module well */
     .panel {
-      background: #f9f9f9;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
+      background: var(--well);
+      border: 1px solid var(--well-line);
+      border-radius: 4px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
     }
 
     .button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 12px 28px;
-      border-radius: 6px;
-      font-size: 1em;
+      background: linear-gradient(180deg, var(--steel-light) 0%, var(--steel) 100%);
+      color: var(--ink);
+      border: 1px solid var(--steel-dark);
+      border-bottom: 3px solid var(--copper);
+      padding: 11px 24px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      font-weight: 600;
+      transition: transform 0.1s, box-shadow 0.1s;
     }
 
     .button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
     }
 
     .button:active {
-      transform: translateY(0);
+      transform: translateY(2px);
+      border-bottom-width: 1px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .button:disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
       transform: none;
     }
 
     .button-secondary {
-      background: #e0e0e0;
-      color: #333;
-    }
-
-    .button-secondary:hover {
-      background: #d0d0d0;
-      box-shadow: none;
+      background: linear-gradient(180deg, var(--steel) 0%, var(--steel-dark) 100%);
+      border-bottom-color: var(--steel-dark);
+      color: var(--label);
     }
 
     .status {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 0.95em;
-      margin-bottom: 15px;
+      padding: 12px 14px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      background: var(--well-raised);
+      border: 1px solid var(--well-line);
+      color: var(--label);
+      position: relative;
+      animation: stamp-in 0.25s ease-out;
     }
 
-    .status.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-      border: 1px solid #4caf50;
+    @keyframes stamp-in {
+      from { transform: scale(0.94) rotate(-2deg); opacity: 0.4; }
+      to { transform: scale(1) rotate(0deg); opacity: 1; }
     }
 
-    .status.error {
-      background: #ffebee;
-      color: #c62828;
-      border: 1px solid #f44336;
+    @media (prefers-reduced-motion: reduce) {
+      .status { animation: none; }
     }
 
-    .status.info {
-      background: #e3f2fd;
-      color: #1565c0;
-      border: 1px solid #2196f3;
-    }
+    .status.success { color: var(--signal-green-well); border-color: var(--signal-green); }
+    .status.error { color: var(--signal-red-well); border-color: var(--signal-red); }
+    .status.info { color: var(--copper-bright); border-color: var(--copper); }
 
     .status-dot {
       display: inline-block;
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
       background: currentColor;
+      box-shadow: 0 0 6px currentColor;
       animation: pulse 2s infinite;
+      flex-shrink: 0;
     }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.45; }
     }
 
     .config-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
     }
 
     .config-item {
-      padding: 15px;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
+      padding: 12px 14px;
+      background: var(--well-raised);
+      border: 1px solid var(--well-line);
+      border-left: 3px solid var(--steel-dark);
+      border-radius: 3px;
     }
 
     .config-label {
-      font-size: 0.85em;
-      font-weight: 600;
-      color: #666;
+      font-size: 0.72em;
+      font-weight: 700;
+      color: var(--label-dim);
       margin-bottom: 5px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.08em;
     }
 
     .config-value {
-      font-size: 1.1em;
-      color: #333;
+      font-size: 1em;
+      color: var(--label);
       word-break: break-all;
-      font-family: 'Courier New', monospace;
+      font-family: var(--font-mono);
     }
 
     .logs-container {
-      background: #1e1e1e;
-      color: #d4d4d4;
-      border-radius: 6px;
-      padding: 15px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.85em;
+      background: #1b1e21;
+      color: #c9cfd3;
+      border-radius: 4px;
+      padding: 15px 15px 15px 18px;
+      font-family: var(--font-mono);
+      font-size: 0.82em;
       height: 420px;
       max-height: 420px;
       overflow-y: auto;
-      line-height: 1.5;
+      line-height: 1.55;
+      border: 1px solid var(--well-line);
+      border-left: 3px dashed var(--steel-dark);
     }
 
     .log-line {
-      padding: 4px 0;
+      padding: 3px 0;
       word-break: break-all;
     }
 
-    .log-error {
-      color: #f48771;
-    }
-
-    .log-warn {
-      color: #ce9178;
-    }
-
-    .log-info {
-      color: #d4d4d4;
-    }
+    .log-error { color: var(--signal-red-well); }
+    .log-warn { color: var(--copper-bright); }
+    .log-info { color: #c9cfd3; }
 
     .controls {
       display: flex;
@@ -217,31 +291,34 @@
     }
 
     .checkpoint-item {
-      padding: 12px;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      margin-bottom: 10px;
+      padding: 11px 14px;
+      background: var(--well-raised);
+      border: 1px solid var(--well-line);
+      border-left: 3px solid var(--copper);
+      border-radius: 3px;
+      margin-bottom: 8px;
     }
 
     .checkpoint-key {
-      font-weight: 600;
-      color: #667eea;
-      font-size: 0.9em;
+      font-weight: 700;
+      color: var(--copper-bright);
+      font-size: 0.72em;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     .checkpoint-value {
       margin-top: 4px;
-      color: #666;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
+      color: var(--label);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
       word-break: break-all;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 18px;
     }
 
     @media (max-width: 768px) {
@@ -250,7 +327,7 @@
       }
 
       .header h1 {
-        font-size: 1.5em;
+        font-size: 1.2em;
       }
 
       .config-grid {
@@ -262,47 +339,97 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
+      padding: 9px 12px;
+      background: var(--well-raised);
+      border: 1px solid var(--well-line);
+      border-left: 3px solid var(--blurple);
+      border-radius: 3px;
       margin-bottom: 8px;
     }
 
     .webhook-item .webhook-url {
       flex: 1;
-      font-family: 'Courier New', monospace;
-      font-size: 0.85em;
-      color: #555;
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+      color: var(--label-dim);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .webhook-item .webhook-index {
-      font-weight: 600;
-      color: #667eea;
-      font-size: 0.85em;
-      min-width: 20px;
+      font-weight: 700;
+      color: var(--blurple);
+      font-size: 0.8em;
+      min-width: 22px;
     }
 
     .webhook-remove {
-      background: #ffebee;
-      color: #c62828;
-      border: 1px solid #f44336;
-      border-radius: 4px;
-      padding: 4px 10px;
+      background: transparent;
+      color: var(--signal-red-well);
+      border: 1px solid var(--signal-red);
+      border-radius: 3px;
+      padding: 3px 9px;
       cursor: pointer;
-      font-size: 0.85em;
+      font-size: 0.82em;
     }
 
     .webhook-remove:hover {
-      background: #ffcdd2;
+      background: rgba(214, 69, 69, 0.15);
     }
 
     .webhook-remove:disabled {
-      opacity: 0.4;
+      opacity: 0.35;
       cursor: not-allowed;
+    }
+
+    .routing-panel {
+      background: var(--well);
+      border: 1px solid var(--well-line);
+      border-left: 3px solid var(--blurple);
+    }
+
+    .routing-panel .routing-heading {
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--label);
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .routing-panel .routing-heading .count {
+      font-weight: 400;
+      font-size: 0.85em;
+      color: var(--label-dim);
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .routing-panel input[type="password"] {
+      flex: 1;
+      min-width: 230px;
+      padding: 10px 12px;
+      background: var(--well-raised);
+      border: 1px solid var(--blurple);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      color: var(--label);
+    }
+
+    .routing-panel input[type="password"]::placeholder {
+      color: var(--label-dim);
+    }
+
+    .routing-hint {
+      font-size: 0.78em;
+      color: var(--label-dim);
+      margin-top: 10px;
+      font-family: var(--font-mono);
     }
 
     .loading {
@@ -324,20 +451,21 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎬 Netflix to Discord</h1>
-      <p>Email Forwarder Control Panel</p>
+      <div class="eyebrow">Unit NTFX&middot;DSC&#8209;01</div>
+      <h1>Netflix &rarr; Discord Relay</h1>
+      <p>gmail intake / discord dispatch</p>
     </div>
 
     <div class="content">
       <!-- Status Section -->
       <div class="section">
-        <div class="section-title">Status</div>
+        <div class="section-title">Signal Status</div>
         <div id="statusContainer"></div>
       </div>
 
       <!-- Control Section -->
       <div class="section">
-        <div class="section-title">Control</div>
+        <div class="section-title">Dispatch Control</div>
         <div class="panel">
           <div class="controls">
             <button class="button" id="runButton" onclick="triggerRun()">
@@ -356,14 +484,14 @@
 
       <!-- Configuration Section -->
       <div class="section">
-        <div class="section-title">Configuration</div>
+        <div class="section-title">Routing Table</div>
         <div class="panel">
           <div class="config-grid" id="configGrid"></div>
         </div>
 
         <!-- Webhook URLs Management Section -->
-        <div class="panel" style="background: #f0f7ff; border-color: #2196f3;">
-          <div style="font-weight: 600; margin-bottom: 15px; color: #1565c0;">Discord Webhook URLs <span id="webhookCount" style="font-weight: 400; font-size: 0.85em; color: #666;">(0/5)</span></div>
+        <div class="panel routing-panel">
+          <div class="routing-heading">Discord Channels <span class="count" id="webhookCount">(0/5)</span></div>
           <div id="webhookUpdateStatus"></div>
           <div id="webhookList" style="margin-bottom: 15px;"></div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -371,24 +499,23 @@
               type="password"
               id="webhookInput"
               placeholder="Paste new Discord webhook URL"
-              style="flex: 1; min-width: 250px; padding: 10px; border: 1px solid #2196f3; border-radius: 6px; font-family: monospace; font-size: 0.9em;"
             >
             <button class="button" id="addWebhookBtn" onclick="addWebhook()" style="white-space: nowrap;">
               + Add Webhook
             </button>
           </div>
-          <div style="font-size: 0.85em; color: #666; margin-top: 10px;">
-            ℹ️ Up to 5 webhook URLs. All channels receive messages when you click Run.
+          <div class="routing-hint">
+            up to 5 channels &middot; every channel receives a copy on each run
           </div>
         </div>
       </div>
 
       <!-- Results Section -->
       <div class="section">
-        <div class="section-title">Last Run Results</div>
+        <div class="section-title">Last Dispatch</div>
         <div class="panel">
           <div id="resultsContainer">
-            <p style="color: #999;">No run results yet</p>
+            <p style="color: var(--label-dim);">No run results yet</p>
           </div>
         </div>
       </div>
@@ -396,6 +523,7 @@
       <!-- Logs Section -->
       <div class="grid-2">
         <div class="section">
+          <div class="section-title">Transmission Log</div>
           <div class="logs-container" id="logsContainer">
             <div class="log-line log-info">Fetching logs...</div>
           </div>
@@ -403,7 +531,7 @@
 
         <!-- Checkpoint Section -->
         <div class="section">
-          <div class="section-title">Checkpoint Status</div>
+          <div class="section-title">Relay Position</div>
           <div class="panel" id="checkpointContainer">
             <div class="log-info">Fetching checkpoint...</div>
           </div>
