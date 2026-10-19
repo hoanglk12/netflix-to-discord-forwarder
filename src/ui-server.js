@@ -41,7 +41,7 @@ async function loadCheckpoint() {
 async function readLogs(lines = 20) {
   try {
     const content = await fs.readFile(config.logFilePath, 'utf8');
-    return content.split('\n').slice(-lines).reverse().filter(l => l.trim());
+    return content.split('\n').filter(l => l.trim()).slice(-lines).reverse();
   } catch {
     return [];
   }
@@ -156,7 +156,7 @@ async function handleApiRequest(pathname, method, body) {
   }
 
   if (pathname === '/api/logs' && method === 'GET') {
-    const logs = await readLogs(5);
+    const logs = await readLogs(50);
     return { status: 200, data: { logs } };
   }
 

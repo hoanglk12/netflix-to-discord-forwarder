@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = await getLogsView(5);
+    const data = await getLogsView();
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(data));

@@ -125,7 +125,7 @@ export async function getStatusView() {
   };
 }
 
-export async function getLogsView(lines = 5) {
+export async function getLogsView(lines = 50) {
   const { config } = await getCoreServices();
   try {
     const content = await fs.readFile(config.logFilePath, 'utf8');
