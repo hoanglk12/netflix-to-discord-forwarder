@@ -947,6 +947,10 @@
       if (state.inFlight || state.status?.isRunning === true) return { kind: 'running' };
       // A failed run doesn't save the checkpoint, so the failure stands until lastOnceRunAt moves.
       if (rec?.kind === 'failed' && (runAt ?? null) === rec.prevRunAt) return { kind: 'failed', rec };
+      // The run answered but the checkpoint here hasn't moved yet (the next poll, or a lagging Vercel instance).
+      if (rec && rec.kind !== 'failed' && rec.runAt === null && (runAt ?? null) === rec.prevRunAt) {
+        return { ...classify(rec.sent, rec.skipped), at: rec.at };
+      }
       if (runAt) return { ...resultFor(runAt, ck), at: runAt };
       if (!state.loaded) return { kind: 'loading' };
       const channels = channelList();
