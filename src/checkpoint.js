@@ -160,6 +160,39 @@ export function buildUpdatedCheckpoint(currentState, deliveredIds, maxIds) {
   };
 }
 
+function extractWebhookId(webhookUrl) {
+  if (typeof webhookUrl !== 'string') return null;
+  try {
+    const match = new URL(webhookUrl).pathname.match(/\/webhooks\/(\d+)(?:\/|$)/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+// The checkpoint stores full webhook URLs (needed to delete earlier posts), and
+// the token segment of a webhook URL lets anyone post to that channel. API
+// responses get this view instead. Entries are rebuilt from an allowlist rather
+// than edited in place: on Vercel `state` is the live in-memory cache.
+export function toPublicCheckpoint(state, webhookUrls = []) {
+  if (!state || typeof state !== 'object' || !('lastSentDiscordMessages' in state)) {
+    return state;
+  }
+
+  const entries = Array.isArray(state.lastSentDiscordMessages) ? state.lastSentDiscordMessages : [];
+  return {
+    ...state,
+    lastSentDiscordMessages: entries.map((entry) => {
+      const webhookIndex = webhookUrls.indexOf(entry?.webhookUrl);
+      return {
+        messageId: entry?.messageId ?? null,
+        webhookId: extractWebhookId(entry?.webhookUrl),
+        webhookIndex: webhookIndex >= 0 ? webhookIndex : null,
+      };
+    }),
+  };
+}
+
 export function buildCheckpointForOnceRun(currentState, latestIds, maxIds, discordMessages = []) {
   const dayKey = getLocalDayKey();
   const baseState = currentState.day === dayKey ? currentState : createEmptyState(dayKey);

@@ -8,6 +8,8 @@ import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
 import { deleteAllSentMessages } from './api-service.js';
+import { toPublicCheckpoint } from './checkpoint.js';
+import { isCrossOriginWrite, isLoopbackHost } from './request-guard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '../public');
@@ -164,7 +166,9 @@ async function handleApiRequest(pathname, method, body) {
     const checkpoint = await loadCheckpoint();
     return {
       status: 200,
-      data: checkpoint || { status: 'Not initialized' },
+      data: checkpoint
+        ? toPublicCheckpoint(checkpoint, config.discordWebhookUrls)
+        : { status: 'Not initialized' },
     };
   }
 
@@ -202,15 +206,6 @@ const server = http.createServer(async (req, res) => {
   const pathname = parsedUrl.pathname;
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
 
   try {
     if (pathname === '/' || pathname === '/index.html') {
@@ -222,6 +217,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith('/api/')) {
+      if (!isLoopbackHost(req.headers.host)) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Host not allowed' }));
+        return;
+      }
+      if (isCrossOriginWrite(req)) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Cross-origin request rejected' }));
+        return;
+      }
+
       let body = '';
       req.on('data', (chunk) => {
         body += chunk.toString();

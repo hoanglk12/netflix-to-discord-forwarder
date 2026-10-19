@@ -1,6 +1,14 @@
 import { getConfigView, addWebhookUrl, removeWebhookUrl } from '../src/api-service.js';
+import { isCrossOriginWrite } from '../src/request-guard.js';
 
 export default async function handler(req, res) {
+  if (isCrossOriginWrite(req)) {
+    res.statusCode = 403;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Cross-origin request rejected' }));
+    return;
+  }
+
   if (req.method === 'GET') {
     try {
       const data = await getConfigView();

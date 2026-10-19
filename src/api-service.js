@@ -5,7 +5,7 @@ import { loadConfig, MAX_WEBHOOK_URLS } from './config.js';
 import { authorizeGmail } from './gmail.js';
 import { createLogger } from './logger.js';
 import { runPollCycle } from './poller.js';
-import { loadCheckpoint, saveCheckpoint } from './checkpoint.js';
+import { loadCheckpoint, saveCheckpoint, toPublicCheckpoint } from './checkpoint.js';
 import { deleteDiscordMessage } from './discord.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,9 +137,11 @@ export async function getLogsView(lines = 5) {
 }
 
 export async function getCheckpointView() {
-  const { config } = await getCoreServices();
+  // withWebhooks so webhookIndex lines up with the list getConfigView returns.
+  const { config } = await getCoreServices({ withWebhooks: true });
   try {
-    return await loadCheckpoint(config.checkpointPath, config.checkpointMaxIds);
+    const checkpoint = await loadCheckpoint(config.checkpointPath, config.checkpointMaxIds);
+    return toPublicCheckpoint(checkpoint, config.discordWebhookUrls);
   } catch {
     return { status: 'Not initialized' };
   }
