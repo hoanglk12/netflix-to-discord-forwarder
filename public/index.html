@@ -2,915 +2,1696 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Netflix to Discord Forwarder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    /* Layout: app header, then a route strip that follows one email (Gmail → sender filter → latest-N window → Discord → Run),
+       then a 7/5 board (last run + duplicate check | channels + checkpoint), then the activity feed. */
     :root {
-      --steel-light: #c7ccd0;
-      --steel: #9aa1a6;
-      --steel-dark: #6b7075;
-      --chassis-line: rgba(255, 255, 255, 0.35);
-      --well: #2e3236;
-      --well-raised: #383d42;
-      --well-line: #454a4f;
-      --label: #f2ecdd;
-      --label-dim: #b9c0c4;
-      --ink: #23262a;
-      --ink-dim: #52585d;
-      --copper: #c1652e;
-      --copper-bright: #e08a4d;
-      --blurple: #5865f2;
-      --signal-red: #d64545;
-      --signal-red-well: #e57373;
-      --signal-green: #4c9a5b;
-      --signal-green-well: #74c686;
-      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+      color-scheme: light;
+      --bg: #ECEFF2;
+      --surface: #FFFFFF;
+      --sunken: #F3F5F7;
+      --line: #D4DBE2;
+      --line-strong: #AEB9C4;
+      --ink: #15202A;
+      --ink-2: #465462;
+      --ink-3: #5F6D7A;
+      --signal: #0B6A73;
+      --signal-ink: #FFFFFF;
+      --signal-soft: #DCEDEE;
+      --ok: #1A6E3D;
+      --ok-soft: #DFF1E6;
+      --warn: #855000;
+      --warn-soft: #FBEED5;
+      --err: #AE251D;
+      --err-soft: #FBE4E2;
+      --idle: #55616D;
+      --idle-soft: #E6EAEE;
+
+      --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+      --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+      --radius: 6px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0E141A; --surface: #151D25; --sunken: #111921; --line: #27323D; --line-strong: #44525F;
+        --ink: #E3E9EF; --ink-2: #AAB6C2; --ink-3: #8C99A6;
+        --signal: #4CC0CA; --signal-ink: #04181B; --signal-soft: #113339;
+        --ok: #66CF92; --ok-soft: #11301F; --warn: #F2B75E; --warn-soft: #35270F; --err: #FF8F86; --err-soft: #3A1816; --idle: #9DA9B5; --idle-soft: #1F2933;
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0E141A; --surface: #151D25; --sunken: #111921; --line: #27323D; --line-strong: #44525F;
+      --ink: #E3E9EF; --ink-2: #AAB6C2; --ink-3: #8C99A6;
+      --signal: #4CC0CA; --signal-ink: #04181B; --signal-soft: #113339;
+      --ok: #66CF92; --ok-soft: #11301F; --warn: #F2B75E; --warn-soft: #35270F; --err: #FF8F86; --err-soft: #3A1816; --idle: #9DA9B5; --idle-soft: #1F2933;
+      color-scheme: dark;
     }
 
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
       font-family: var(--font-body);
-      color: var(--ink);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 28px 20px;
-      background-color: var(--steel);
-      background-image:
-        repeating-linear-gradient(100deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 5px),
-        linear-gradient(160deg, var(--steel-light) 0%, var(--steel) 45%, var(--steel-dark) 100%);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
+    h1, h2, h3, p, ol, ul, dl, dd, figure { margin: 0; }
+    h1, h2, h3 { text-wrap: balance; }
+    code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+    button, input { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+    [hidden] { display: none !important; }
 
-    .container {
-      background: var(--steel-light);
-      border: 1px solid var(--steel-dark);
-      border-radius: 6px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--chassis-line);
-      max-width: 940px;
+    .wrap {
       width: 100%;
-      overflow: hidden;
-      position: relative;
+      max-width: 1212px;
+      margin-inline: auto;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
     }
 
-    /* Faceplate header */
-    .header {
-      background: var(--well);
-      color: var(--label);
-      padding: 22px 28px;
-      position: relative;
-      border-bottom: 3px solid var(--copper);
-    }
-
-    .header::before,
-    .header::after {
-      content: '';
-      position: absolute;
-      top: 12px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--label-dim);
-      box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
-    }
-
-    .header::before { left: 12px; }
-    .header::after { right: 12px; }
-
-    .header .eyebrow {
-      font-family: var(--font-mono);
-      font-size: 0.7em;
-      letter-spacing: 0.18em;
-      color: var(--copper-bright);
+    /* Shared type */
+    .eyebrow {
+      font-family: var(--font-display);
+      font-stretch: 78%;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.09em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      color: var(--ink-3);
     }
-
-    .header h1 {
-      font-size: 1.5em;
-      font-weight: 800;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-    }
-
-    .header p {
-      font-size: 0.85em;
-      color: var(--label-dim);
-      margin-top: 4px;
-      font-family: var(--font-mono);
-    }
-
-    .content {
-      padding: 26px 28px 30px;
-    }
-
-    .section {
-      margin-bottom: 26px;
-    }
-
-    .section-title {
-      font-size: 0.78em;
+    .meta { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .card h2 {
+      font-family: var(--font-display);
+      font-stretch: 75%;
       font-weight: 700;
-      margin-bottom: 12px;
-      color: var(--ink-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--steel-dark);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .section-title::before {
-      content: '';
-      width: 7px;
-      height: 7px;
-      border-radius: 1px;
-      background: var(--copper);
-      transform: rotate(45deg);
-      flex-shrink: 0;
-    }
-
-    /* Recessed module well */
-    .panel {
-      background: var(--well);
-      border: 1px solid var(--well-line);
-      border-radius: 4px;
-      padding: 18px;
-      margin-bottom: 16px;
-      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
-    }
-
-    .button {
-      background: linear-gradient(180deg, var(--steel-light) 0%, var(--steel) 100%);
-      color: var(--ink);
-      border: 1px solid var(--steel-dark);
-      border-bottom: 3px solid var(--copper);
-      padding: 11px 24px;
-      border-radius: 4px;
-      font-size: 0.85em;
-      font-weight: 700;
-      text-transform: uppercase;
+      font-size: 17px;
       letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .seg button {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink-2);
+      border-radius: 4px;
+      padding: 4px 9px;
+      font-size: 12px;
       cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.1s;
     }
+    .seg button:hover { border-color: var(--line-strong); }
+    .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 
-    .button:hover {
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-    }
-
-    .button:active {
-      transform: translateY(2px);
-      border-bottom-width: 1px;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .button-secondary {
-      background: linear-gradient(180deg, var(--steel) 0%, var(--steel-dark) 100%);
-      border-bottom-color: var(--steel-dark);
-      color: var(--label);
-    }
-
-    .status {
+    /* App */
+    .app { padding-block: 28px 40px; display: grid; gap: 20px; }
+    .app-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+    .wordmark {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 14px;
-      border-radius: 4px;
-      font-size: 0.9em;
-      margin-bottom: 12px;
-      font-family: var(--font-mono);
-      background: var(--well-raised);
-      border: 1px solid var(--well-line);
-      color: var(--label);
-      position: relative;
-      animation: stamp-in 0.25s ease-out;
-    }
-
-    @keyframes stamp-in {
-      from { transform: scale(0.94) rotate(-2deg); opacity: 0.4; }
-      to { transform: scale(1) rotate(0deg); opacity: 1; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .status { animation: none; }
-    }
-
-    .status.success { color: var(--signal-green-well); border-color: var(--signal-green); }
-    .status.error { color: var(--signal-red-well); border-color: var(--signal-red); }
-    .status.info { color: var(--copper-bright); border-color: var(--copper); }
-
-    .status-dot {
-      display: inline-block;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 6px currentColor;
-      animation: pulse 2s infinite;
-      flex-shrink: 0;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.45; }
-    }
-
-    .config-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 12px;
-    }
-
-    .config-item {
-      padding: 12px 14px;
-      background: var(--well-raised);
-      border: 1px solid var(--well-line);
-      border-left: 3px solid var(--steel-dark);
-      border-radius: 3px;
-    }
-
-    .config-label {
-      font-size: 0.72em;
-      font-weight: 700;
-      color: var(--label-dim);
-      margin-bottom: 5px;
+      font-family: var(--font-display);
+      font-stretch: 62%;
+      font-weight: 800;
+      font-size: clamp(30px, 5vw, 42px);
+      line-height: 0.95;
+      letter-spacing: 0.01em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
     }
+    .wordmark svg { width: 0.8em; height: 0.8em; color: var(--signal); flex: none; }
+    .brand-sub { margin-top: 6px; color: var(--ink-2); font-size: 14px; }
+    .head-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 
-    .config-value {
-      font-size: 1em;
-      color: var(--label);
-      word-break: break-all;
-      font-family: var(--font-mono);
-    }
-
-    .logs-container {
-      background: #1b1e21;
-      color: #c9cfd3;
-      border-radius: 4px;
-      padding: 15px 15px 15px 18px;
-      font-family: var(--font-mono);
-      font-size: 0.82em;
-      height: 420px;
-      max-height: 420px;
-      overflow-y: auto;
-      line-height: 1.55;
-      border: 1px solid var(--well-line);
-      border-left: 3px dashed var(--steel-dark);
-    }
-
-    .log-line {
-      padding: 3px 0;
-      word-break: break-all;
-    }
-
-    .log-error { color: var(--signal-red-well); }
-    .log-warn { color: var(--copper-bright); }
-    .log-info { color: #c9cfd3; }
-
-    .controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .checkpoint-item {
-      padding: 11px 14px;
-      background: var(--well-raised);
-      border: 1px solid var(--well-line);
-      border-left: 3px solid var(--copper);
-      border-radius: 3px;
-      margin-bottom: 8px;
-    }
-
-    .checkpoint-key {
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px 6px 10px;
+      border-radius: 999px;
+      background: var(--tone-soft, var(--idle-soft));
+      color: var(--tone, var(--idle));
       font-weight: 700;
-      color: var(--copper-bright);
-      font-size: 0.72em;
+      font-size: 13px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+    .pill[data-tone="signal"] .dot { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.35; } }
+
+    [data-tone="ok"] { --tone: var(--ok); --tone-soft: var(--ok-soft); }
+    [data-tone="warn"] { --tone: var(--warn); --tone-soft: var(--warn-soft); }
+    [data-tone="err"] { --tone: var(--err); --tone-soft: var(--err-soft); }
+    [data-tone="idle"] { --tone: var(--idle); --tone-soft: var(--idle-soft); }
+    [data-tone="signal"] { --tone: var(--signal); --tone-soft: var(--signal-soft); }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-display);
+      font-stretch: 80%;
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .checkpoint-value {
-      margin-top: 4px;
-      color: var(--label);
-      font-family: var(--font-mono);
-      font-size: 0.88em;
-      word-break: break-all;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-    }
-
-    @media (max-width: 768px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
-
-      .header h1 {
-        font-size: 1.2em;
-      }
-
-      .config-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .webhook-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      background: var(--well-raised);
-      border: 1px solid var(--well-line);
-      border-left: 3px solid var(--blurple);
-      border-radius: 3px;
-      margin-bottom: 8px;
-    }
-
-    .webhook-item .webhook-url {
-      flex: 1;
-      font-family: var(--font-mono);
-      font-size: 0.82em;
-      color: var(--label-dim);
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: var(--tone-soft, var(--idle-soft));
+      color: var(--tone, var(--idle));
       white-space: nowrap;
     }
 
-    .webhook-item .webhook-index {
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 9px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      color: var(--ink);
       font-weight: 700;
-      color: var(--blurple);
-      font-size: 0.8em;
-      min-width: 22px;
-    }
-
-    .webhook-remove {
-      background: transparent;
-      color: var(--signal-red-well);
-      border: 1px solid var(--signal-red);
-      border-radius: 3px;
-      padding: 3px 9px;
+      font-size: 14px;
+      line-height: 1.1;
       cursor: pointer;
-      font-size: 0.82em;
     }
+    .btn:hover:not(:disabled) { background: var(--sunken); }
+    .btn:disabled { color: var(--ink-3); border-color: var(--line); cursor: not-allowed; }
+    .btn svg { width: 16px; height: 16px; flex: none; }
+    .btn.primary { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+    .btn.primary:hover:not(:disabled) { background: var(--signal); filter: brightness(1.08); }
+    .btn.primary:disabled { background: var(--idle-soft); border-color: var(--idle-soft); color: var(--ink-3); }
+    .btn.small { padding: 6px 10px; font-size: 13px; }
+    .btn.quiet { border-color: transparent; background: transparent; color: var(--ink-2); }
+    .btn.quiet:hover:not(:disabled) { background: var(--sunken); color: var(--ink); }
+    .btn.danger { background: var(--err); border-color: var(--err); color: var(--surface); }
+    .btn.danger:hover:not(:disabled) { background: var(--err); filter: brightness(1.08); }
 
-    .webhook-remove:hover {
-      background: rgba(214, 69, 69, 0.15);
+    /* Route strip */
+    .route {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 22px 22px 20px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px 28px;
+      align-items: start;
     }
-
-    .webhook-remove:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
+    .stops { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stop { position: relative; padding: 30px 20px 0 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .stop::before {
+      content: "";
+      position: absolute;
+      top: 8px; left: 0; right: 0;
+      height: 2px;
+      background: var(--line-strong);
     }
-
-    .routing-panel {
-      background: var(--well);
-      border: 1px solid var(--well-line);
-      border-left: 3px solid var(--blurple);
-    }
-
-    .routing-panel .routing-heading {
-      font-weight: 700;
-      margin-bottom: 12px;
-      color: var(--label);
-      font-size: 0.85em;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .routing-panel .routing-heading .count {
-      font-weight: 400;
-      font-size: 0.85em;
-      color: var(--label-dim);
-      text-transform: none;
-      letter-spacing: normal;
-    }
-
-    .routing-panel input[type="password"] {
-      flex: 1;
-      min-width: 230px;
-      padding: 10px 12px;
-      background: var(--well-raised);
-      border: 1px solid var(--blurple);
-      border-radius: 4px;
-      font-family: var(--font-mono);
-      font-size: 0.85em;
-      color: var(--label);
-    }
-
-    .routing-panel input[type="password"]::placeholder {
-      color: var(--label-dim);
-    }
-
-    .routing-hint {
-      font-size: 0.78em;
-      color: var(--label-dim);
-      margin-top: 10px;
-      font-family: var(--font-mono);
-    }
-
-    .loading {
-      display: inline-block;
-      width: 4px;
-      height: 4px;
+    .stop:first-child::before { left: 8px; }
+    .stop:last-child::before { right: -28px; }
+    .stop-dot {
+      position: absolute; top: 0; left: 0;
+      width: 18px; height: 18px;
       border-radius: 50%;
-      background: currentColor;
-      animation: bounce 1.4s infinite;
-      margin-right: 4px;
+      background: var(--surface);
+      border: 4px solid var(--tone, var(--line-strong));
     }
+    .stop-title { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 20px; line-height: 1.15; }
+    .stop-value { color: var(--ink-2); overflow-wrap: anywhere; }
+    .stop-state { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); }
+    .pips { display: flex; gap: 4px; padding-block: 3px; }
+    .pip { width: 18px; height: 12px; border-radius: 2px; background: var(--sunken); border: 1px solid var(--line-strong); }
+    .pip[data-k="seen"] { background: var(--line-strong); border-color: var(--line-strong); }
+    .pip[data-k="new"] { background: var(--signal); border-color: var(--signal); }
 
-    @keyframes bounce {
-      0%, 80%, 100% { opacity: 0.3; }
-      40% { opacity: 1; }
+    .route[data-running="true"] .stop::before {
+      background: linear-gradient(90deg, var(--line-strong) 0 35%, var(--signal) 50%, var(--line-strong) 65% 100%);
+      background-size: 300% 100%;
+      animation: flow 1.6s linear infinite;
+    }
+    @keyframes flow { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+    .run-cell { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 4px; width: 210px; }
+    .btn-run {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 16px 20px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--signal);
+      color: var(--signal-ink);
+      font-family: var(--font-display);
+      font-stretch: 80%;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .btn-run svg { width: 18px; height: 18px; }
+    .btn-run:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-run:disabled { background: var(--idle-soft); color: var(--ink-3); cursor: not-allowed; }
+    .run-note { font-size: 13px; color: var(--ink-2); text-align: center; text-wrap: balance; }
+
+    /* Board */
+    .board { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px; align-items: start; }
+    .col { display: grid; gap: 20px; min-width: 0; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+    .card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+
+    /* Outcome */
+    .outcome {
+      background: var(--tone-soft, var(--idle-soft));
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      display: grid;
+      gap: 10px;
+      justify-items: start;
+    }
+    .outcome > * { max-width: 100%; }
+    .outcome-head {
+      font-family: var(--font-display);
+      font-stretch: 92%;
+      font-weight: 700;
+      font-size: clamp(22px, 3vw, 28px);
+      line-height: 1.15;
+      color: var(--ink);
+      text-wrap: balance;
+    }
+    .outcome-body { color: var(--ink-2); max-width: 62ch; }
+    .outcome-body code { color: var(--ink); }
+    .figures { display: flex; flex-wrap: wrap; gap: 8px 28px; padding-top: 4px; }
+    .figures div { display: grid; gap: 2px; }
+    .figures dt { font-size: 12px; color: var(--ink-2); }
+    .figures dd { font-family: var(--font-mono); font-weight: 600; font-size: 22px; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .errbox {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.55;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 10px 12px;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+      justify-self: stretch;
+    }
+    .fix { display: grid; gap: 8px; padding-left: 1.4em; color: var(--ink-2); }
+    .fix li::marker { font-family: var(--font-mono); color: var(--tone); font-weight: 600; }
+    .cmd { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .cmd code, .fix code { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; color: var(--ink); }
+    .progress { height: 4px; border-radius: 2px; background: var(--surface); overflow: hidden; justify-self: stretch; }
+    .progress span { display: block; width: 35%; height: 100%; background: var(--signal); animation: slide 1.3s ease-in-out infinite; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+
+    /* Duplicate check */
+    .dupe { display: grid; gap: 12px; }
+    .dupe-intro { display: grid; gap: 4px; }
+    .dupe-intro h3 { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 16px; }
+    .dupe-intro p { color: var(--ink-2); font-size: 14px; max-width: 62ch; }
+    .stale { font-size: 13px; color: var(--warn); }
+    .dupe-table { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .dupe-row {
+      display: grid;
+      grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+      gap: 4px 14px;
+      padding: 10px 14px;
+      align-items: start;
+      border-top: 1px solid var(--line);
+    }
+    .dupe-row:first-child { border-top: 0; }
+    .dupe-row.head { background: var(--sunken); padding-block: 8px; }
+    .dupe-row[data-same="true"] { background: var(--warn-soft); }
+    .pos { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); padding-top: 1px; }
+    .match { justify-self: end; }
+    .mail { display: grid; gap: 2px; min-width: 0; }
+    .mail code { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+    .mail .subj { font-size: 14px; line-height: 1.35; }
+    .verdict { font-size: 14px; color: var(--ink-2); }
+    .verdict strong { color: var(--ink); }
+
+    /* Channels */
+    .slots { display: inline-flex; gap: 3px; vertical-align: middle; margin-right: 8px; }
+    .slots i { width: 14px; height: 8px; border-radius: 2px; background: var(--sunken); border: 1px solid var(--line-strong); }
+    .slots i.on { background: var(--signal); border-color: var(--signal); }
+    .card-lede { color: var(--ink-2); font-size: 14px; margin-top: -8px; }
+    .chan-list { list-style: none; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); }
+    .chan { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); }
+    .chan:first-child { border-top: 0; }
+    .chan-idx { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); }
+    .chan-main { display: grid; gap: 2px; min-width: 0; }
+    .chan-url { font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+    .chan-url .dim { color: var(--ink-3); }
+    .chan-meta { font-size: 13px; color: var(--ink-2); }
+    .chan.confirming { background: var(--err-soft); }
+    .confirm { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .confirm p { font-size: 14px; flex: 1 1 14rem; }
+    .chan-empty { padding: 18px 14px; color: var(--ink-2); font-size: 14px; }
+    .chan-empty strong { display: block; color: var(--ink); margin-bottom: 2px; }
+    .keep-note { font-size: 13px; color: var(--ink-3); }
+
+    .add-form { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-block: 14px 0; }
+    .add-form label { font-weight: 700; font-size: 14px; }
+    .input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .input-wrap { position: relative; flex: 1 1 14rem; min-width: 0; display: flex; }
+    .input-wrap input {
+      width: 100%;
+      min-width: 0;
+      padding: 10px 64px 10px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--sunken);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .input-wrap input[aria-invalid="true"] { border-color: var(--err); }
+    .input-wrap .reveal { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+    .help { font-size: 13px; color: var(--ink-3); }
+    .form-msg { font-size: 13px; min-height: 1.3em; color: var(--tone, var(--ink-2)); font-weight: 700; }
+    .form-msg:empty { display: none; }
+
+    /* Checkpoint */
+    .ckpt-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+    .ckpt-list div { display: grid; gap: 2px; min-width: 0; }
+    .ckpt-list dt { font-size: 12px; color: var(--ink-2); }
+    .ckpt-list dd { font-family: var(--font-mono); font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; }
+    .ckpt-list dd small { display: block; font-family: var(--font-body); font-weight: 400; font-size: 12px; color: var(--ink-3); }
+    .ckpt-empty { color: var(--ink-2); font-size: 14px; }
+    .ckpt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; border-top: 1px dashed var(--line); padding-top: 14px; }
+    .ckpt-actions .confirm-box { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; background: var(--err-soft); border-radius: var(--radius); padding: 12px 14px; width: 100%; }
+    .ckpt-actions .confirm-box p { font-size: 14px; flex: 1 1 14rem; }
+
+    /* Activity */
+    .log {
+      list-style: none;
+      padding: 0;
+      max-height: 340px;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--sunken);
+    }
+    .log-line {
+      display: grid;
+      grid-template-columns: 7.4rem 3.9rem minmax(0, 1fr);
+      gap: 2px 12px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--line);
+      align-items: baseline;
+    }
+    .log-line:first-child { border-top: 0; }
+    .log-line time { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .log-line .chip { justify-self: start; font-size: 11px; padding: 4px 6px; }
+    .log-msg { min-width: 0; display: grid; gap: 3px; }
+    .log-msg > span:first-child { font-size: 14px; overflow-wrap: anywhere; }
+    .kvs { display: flex; flex-wrap: wrap; gap: 2px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+    .kvs .k { color: var(--ink-3); }
+    .log-empty { padding: 16px 14px; color: var(--ink-2); font-size: 14px; }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+      .board { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 820px) {
+      .route { grid-template-columns: minmax(0, 1fr); padding: 18px; }
+      .stops { grid-template-columns: minmax(0, 1fr); }
+      .stop { padding: 0 0 18px 32px; }
+      .stop::before { top: 0; bottom: 0; left: 8px; right: auto; width: 2px; height: auto; }
+      .stop:first-child::before { left: 8px; top: 9px; }
+      .stop:last-child::before { right: auto; bottom: -20px; }
+      .route[data-running="true"] .stop::before { background: var(--signal); animation: none; }
+      .run-cell { width: auto; padding-left: 32px; }
+    }
+    @media (max-width: 560px) {
+      .card { padding: 16px; }
+      .dupe-row { grid-template-columns: 1.3rem minmax(0, 1fr) auto; padding: 10px 12px; gap: 4px 10px; }
+      .chan-url .pre { display: none; }
+      .log-line { grid-template-columns: auto minmax(0, 1fr); }
+      .log-msg { grid-column: 1 / -1; }
+      .ckpt-list { gap: 12px 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="eyebrow">Unit NTFX&middot;DSC&#8209;01</div>
-      <h1>Netflix &rarr; Discord Relay</h1>
-      <p>gmail intake / discord dispatch</p>
+  <main class="wrap app">
+    <header class="app-head">
+      <div>
+        <h1 class="wordmark">Netflix
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" role="img" aria-label="to"><path d="M3 12h16M13 5l7 7-7 7"/></svg>
+          Discord</h1>
+        <p class="brand-sub">Forwards Netflix emails from Gmail to your Discord channels.</p>
+      </div>
+      <div class="head-status">
+        <span class="pill" id="headPill" data-tone="idle"><span class="dot"></span><span id="headPillText">Loading</span></span>
+        <span class="meta" id="checkedAt">Connecting…</span>
+        <button type="button" class="btn small" id="refreshBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <section class="route" id="route" aria-label="Forwarding route">
+      <ol class="stops">
+        <li class="stop" id="stopGmail">
+          <span class="stop-dot" aria-hidden="true"></span>
+          <span class="eyebrow">Source</span>
+          <span class="stop-title">Gmail</span>
+          <code class="stop-value" id="gmailQuery">…</code>
+          <span class="stop-state" id="gmailState"></span>
+        </li>
+        <li class="stop" id="stopFilter">
+          <span class="stop-dot" aria-hidden="true"></span>
+          <span class="eyebrow">Filter</span>
+          <span class="stop-title">Sender contains</span>
+          <code class="stop-value" id="senderFilter">…</code>
+          <span class="stop-state" id="filterState"></span>
+        </li>
+        <li class="stop" id="stopWindow">
+          <span class="stop-dot" aria-hidden="true"></span>
+          <span class="eyebrow">Window</span>
+          <span class="stop-title" id="windowTitle">Latest 5</span>
+          <span class="pips" id="pips" aria-hidden="true"></span>
+          <span class="stop-state" id="windowState"></span>
+        </li>
+        <li class="stop" id="stopDiscord">
+          <span class="stop-dot" aria-hidden="true"></span>
+          <span class="eyebrow">Deliver</span>
+          <span class="stop-title">Discord</span>
+          <span class="stop-value" id="discordValue"></span>
+          <span class="stop-state" id="discordState"></span>
+        </li>
+      </ol>
+      <div class="run-cell">
+        <button type="button" class="btn-run" id="runBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z"/></svg>
+          <span id="runLabel">Run now</span>
+        </button>
+        <p class="run-note" id="runNote" role="status"></p>
+      </div>
+    </section>
+
+    <div class="board">
+      <div class="col">
+        <section class="card" aria-labelledby="lastRunTitle">
+          <div class="card-head">
+            <h2 id="lastRunTitle">Last run</h2>
+            <span class="meta" id="lastRunTime"></span>
+          </div>
+          <div class="outcome" id="outcome" aria-live="polite"></div>
+          <div class="dupe">
+            <div class="dupe-intro">
+              <h3>Duplicate check</h3>
+              <p id="dupeIntro">A run posts only when the latest 5 emails differ from the ones the last run saw. Positions run oldest to newest.</p>
+            </div>
+            <p class="stale" id="dupeStale" hidden></p>
+            <div class="dupe-table" id="dupeTable" role="table" aria-label="Email window saved by the last run"></div>
+            <p class="verdict" id="verdict"></p>
+            <p class="help">The checkpoint stores only the latest window, so the previous run's emails aren't listed. Subjects come from the activity log while it still has them.</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="chanTitle">
+          <div class="card-head">
+            <h2 id="chanTitle">Discord channels</h2>
+            <span class="meta"><span class="slots" id="slots" aria-hidden="true"></span><span id="slotText"></span></span>
+          </div>
+          <p class="card-lede">Every run posts to all of these.</p>
+          <ul class="chan-list" id="chanList"></ul>
+          <p class="keep-note" id="keepNote" hidden>Keep at least one channel. Add another before removing this one.</p>
+          <p class="keep-note" id="fullNote" hidden>All 5 slots are in use. Remove one to add another.</p>
+          <form class="add-form" id="addForm" novalidate>
+            <label for="webhookInput">Add a channel</label>
+            <div class="input-row">
+              <div class="input-wrap">
+                <input id="webhookInput" type="password" autocomplete="off" spellcheck="false" placeholder="https://discord.com/api/webhooks/…" aria-describedby="addHelp addMsg">
+                <button type="button" class="btn small quiet reveal" id="revealBtn" aria-pressed="false" aria-controls="webhookInput">Show</button>
+              </div>
+              <button type="submit" class="btn primary" id="addBtn">Add channel</button>
+            </div>
+            <p class="help" id="addHelp">In Discord: Server Settings, Integrations, Webhooks, Copy Webhook URL. Saved to <code>.env</code> locally, or to Upstash Redis when deployed.</p>
+            <p class="form-msg" id="addMsg" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="ckptTitle">
+          <div class="card-head">
+            <h2 id="ckptTitle">Checkpoint</h2>
+            <span class="meta" id="ckptMeta">Saved after every run</span>
+          </div>
+          <div id="ckptBody"><p class="ckpt-empty">Loading the checkpoint…</p></div>
+          <div class="ckpt-actions" id="ckptActions"></div>
+          <p class="form-msg" id="delMsg" role="status" aria-live="polite"></p>
+        </section>
+      </div>
     </div>
 
-    <div class="content">
-      <!-- Status Section -->
-      <div class="section">
-        <div class="section-title">Signal Status</div>
-        <div id="statusContainer"></div>
-      </div>
-
-      <!-- Control Section -->
-      <div class="section">
-        <div class="section-title">Dispatch Control</div>
-        <div class="panel">
-          <div class="controls">
-            <button class="button" id="runButton" onclick="triggerRun()">
-              ▶ Run Now
-            </button>
-            <button class="button button-secondary" onclick="refreshAll()">
-              ⟳ Refresh
-            </button>
-            <button class="button button-secondary" id="deleteMessagesBtn" onclick="deleteAllMessages()">
-              🗑 Delete All Messages
-            </button>
-          </div>
-          <div id="deleteMessagesStatus" style="margin-top: 10px;"></div>
+    <section class="card" aria-labelledby="actTitle">
+      <div class="card-head">
+        <div>
+          <h2 id="actTitle">Activity</h2>
+          <span class="meta" id="logMeta">Newest first</span>
+        </div>
+        <div class="seg" role="group" aria-label="Show log levels" id="logSeg">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="warn" aria-pressed="false">Warnings</button>
+          <button type="button" data-filter="error" aria-pressed="false">Errors</button>
         </div>
       </div>
-
-      <!-- Configuration Section -->
-      <div class="section">
-        <div class="section-title">Routing Table</div>
-        <div class="panel">
-          <div class="config-grid" id="configGrid"></div>
-        </div>
-
-        <!-- Webhook URLs Management Section -->
-        <div class="panel routing-panel">
-          <div class="routing-heading">Discord Channels <span class="count" id="webhookCount">(0/5)</span></div>
-          <div id="webhookUpdateStatus"></div>
-          <div id="webhookList" style="margin-bottom: 15px;"></div>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input
-              type="password"
-              id="webhookInput"
-              placeholder="Paste new Discord webhook URL"
-            >
-            <button class="button" id="addWebhookBtn" onclick="addWebhook()" style="white-space: nowrap;">
-              + Add Webhook
-            </button>
-          </div>
-          <div class="routing-hint">
-            up to 5 channels &middot; every channel receives a copy on each run
-          </div>
-        </div>
-      </div>
-
-      <!-- Results Section -->
-      <div class="section">
-        <div class="section-title">Last Dispatch</div>
-        <div class="panel">
-          <div id="resultsContainer">
-            <p style="color: var(--label-dim);">No run results yet</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Logs Section -->
-      <div class="grid-2">
-        <div class="section">
-          <div class="section-title">Transmission Log</div>
-          <div class="logs-container" id="logsContainer">
-            <div class="log-line log-info">Fetching logs...</div>
-          </div>
-        </div>
-
-        <!-- Checkpoint Section -->
-        <div class="section">
-          <div class="section-title">Relay Position</div>
-          <div class="panel" id="checkpointContainer">
-            <div class="log-info">Fetching checkpoint...</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+      <ol class="log" id="log" tabindex="0" aria-label="Log lines"></ol>
+    </section>
+  </main>
 
   <script>
+  (() => {
+    'use strict';
+
+    const MAX_CHANNELS = 5; // MAX_WEBHOOK_URLS in src/config.js
+    const POLL_MS = 5000;
+    const RUN_KEY = 'forwarder:lastRun';
+    // An outcome log line this close to checkpoint.lastOnceRunAt belongs to that run. Both times come from the server.
+    const SAME_RUN_MS = 120000;
+    // Log messages written by runPollCycle, one per outcome.
+    const OUTCOME_MARKERS = {
+      'Forwarded message to Discord': 'posted',
+      'Skipped once run because latest message window exactly matches previous once run': 'skipped',
+      'No matching messages found for this run': 'nothing',
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function htmlEscape(value) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(value ?? '').replace(/[&<>"']/g, (m) => map[m]);
+    }
+
+    // Webhook tokens must never reach the page, even inside an error message or log line.
+    function maskSecrets(text) {
+      return String(text ?? '')
+        .replace(/(\/webhooks\/\d+\/)[A-Za-z0-9._~-]+/gi, '$1••••')
+        .replace(/([?&](?:token|access_token|key)=)[^&\s"']+/gi, '$1••••');
+    }
+
+    const store = {
+      read(key) {
+        try {
+          const raw = window.localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      },
+      write(key, value) {
+        try {
+          window.localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+          // Storage unavailable (private window, blocked site data); the page works without it.
+        }
+      },
+      remove(key) {
+        try {
+          window.localStorage.removeItem(key);
+        } catch {
+          // Storage unavailable.
+        }
+      },
+    };
+
+    // The previous dashboard cached the raw /api/run response and checkpoint under these keys,
+    // webhook URLs included. Clear them so the tokens don't linger in this browser.
+    store.remove('lastCheckpoint');
+    store.remove('lastRunResult');
+
+    const pad = (n, w = 2) => String(n).padStart(w, '0');
+    const clock = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const clockMs = (d) => `${clock(d)}.${pad(d.getMilliseconds(), 3)}`;
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const sameDay = (a, b) => a.toDateString() === b.toDateString();
+    const dayLabel = (d) => (sameDay(d, new Date()) ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+    const toCount = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+
+    function ago(ms) {
+      const s = Math.round((Date.now() - ms) / 1000);
+      if (s < 45) return 'just now';
+      const m = Math.round(s / 60);
+      if (m < 60) return `${m} min ago`;
+      const h = Math.round(m / 60);
+      if (h < 48) return `${h} h ago`;
+      return `${Math.round(h / 24)} days ago`;
+    }
+
+    function parseTime(value) {
+      if (typeof value !== 'string' && typeof value !== 'number') return null;
+      const t = new Date(value).getTime();
+      return Number.isFinite(t) ? t : null;
+    }
+
+    function setHTML(el, html) {
+      if (el.__html === html) return false;
+      el.innerHTML = html;
+      el.__html = html;
+      return true;
+    }
+
+    function setText(el, text) {
+      if (el.textContent !== text) el.textContent = text;
+    }
+
+    function setTone(el, tone) {
+      if (el.dataset.tone !== tone) el.dataset.tone = tone;
+    }
+
+    /* State */
+
+    function readRunRecord() {
+      const rec = store.read(RUN_KEY);
+      if (!rec || typeof rec !== 'object') return null;
+      if (!['posted', 'skipped', 'nothing', 'failed'].includes(rec.kind) || !Number.isFinite(rec.at)) return null;
+      return {
+        kind: rec.kind,
+        sent: toCount(rec.sent),
+        skipped: toCount(rec.skipped),
+        message: typeof rec.message === 'string' ? maskSecrets(rec.message).slice(0, 600) : '',
+        code: ['invalid_grant', 'unreachable'].includes(rec.code) ? rec.code : null,
+        at: rec.at,
+        prevRunAt: Number.isFinite(rec.prevRunAt) ? rec.prevRunAt : null,
+        runAt: Number.isFinite(rec.runAt) ? rec.runAt : null,
+      };
+    }
+
+    const state = {
+      loaded: false,
+      status: null,
+      statusError: null,
+      lastOkAt: null,
+      config: null,
+      configError: null,
+      checkpoint: null,
+      checkpointError: null,
+      runCheckpoint: null, // from a Vercel /api/run response, fresher than another instance's copy
+      logs: [],
+      logsError: null,
+      runLogs: [],
+      inFlight: false,
+      runStartedAt: null,
+      runNote: null,
+      // Derived fields only: {kind, sent, skipped, message, code, at, prevRunAt, runAt}. prevRunAt and runAt are
+      // checkpoint.lastOnceRunAt before and after the run, so matching never compares browser and server clocks.
+      lastRun: readRunRecord(),
+      pendingRemove: -1,
+      busyChannels: false,
+      confirmDelete: false,
+      deleting: false,
+      logFilter: 'all',
+    };
+
+    function saveRunRecord(rec) {
+      state.lastRun = rec;
+      store.write(RUN_KEY, rec);
+    }
+
+    // A successful run moves checkpoint.lastOnceRunAt. The first new value seen after it is this run's.
+    function bindRunRecord() {
+      const rec = state.lastRun;
+      const runAt = activeCheckpoint()?.runAt ?? null;
+      if (!rec || rec.kind === 'failed' || rec.runAt !== null || runAt === null || runAt === rec.prevRunAt) return;
+      saveRunRecord({ ...rec, runAt });
+    }
+
+    /* API */
+
     async function apiCall(endpoint, method = 'GET', body = null) {
+      const options = { method, cache: 'no-store', headers: {} };
+      if (body) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+      }
+      let response;
       try {
-        const options = {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-        };
-        if (body) options.body = JSON.stringify(body);
-
-        const response = await fetch(`/api${endpoint}`, options);
-        return await response.json();
+        response = await fetch(`/api${endpoint}`, options);
       } catch (error) {
-        console.error(`API error at ${endpoint}:`, error);
-        return { error: error.message };
+        return { ok: false, status: 0, data: { error: `Couldn't reach the forwarder (${error.message}).` } };
       }
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+      if (!data || typeof data !== 'object') {
+        data = response.ok ? {} : { error: `Request failed with status ${response.status}.` };
+      }
+      return { ok: response.ok && !data.error, status: response.status, data };
     }
 
-    async function loadStatus() {
-      const data = await apiCall('/status');
-      const container = document.getElementById('statusContainer');
+    /* Derived data */
 
-      if (data.error) {
-        container.innerHTML = `<div class="status error">❌ Error: ${data.error}</div>`;
-        return;
-      }
-
-      const statusClass = data.isRunning ? 'info' : 'success';
-      const statusText = data.isRunning ? 'Running...' : 'Ready';
-      const runButton = document.getElementById('runButton');
-      runButton.disabled = data.isRunning;
-
-      container.innerHTML = `
-        <div class="status ${statusClass}">
-          <span class="status-dot"></span>
-          <span>${statusText}</span>
-        </div>
-      `;
-
-      if (data.lastRunResult && typeof data.lastRunResult === 'object') {
-        renderLastRunResult(data.lastRunResult, 'from server status');
-      }
+    // Config returns each URL cut to 50 characters plus "...". That usually ends inside the webhook ID,
+    // and never reaches the token.
+    function describeChannel(truncated) {
+      const head = String(truncated ?? '').replace(/\.\.\.$/, '');
+      const m = head.match(/^https?:\/\/([^/?#]+)(\/(?:[^?#]*\/)?webhooks\/)(\d*)/i);
+      if (m) return { head, host: m[1], path: m[2], id: m[3] };
+      const host = head.replace(/^https?:\/\//i, '').split(/[/?#]/)[0];
+      return { head, host, path: '', id: '' };
     }
 
-    let currentWebhookUrls = [];
-
-    async function loadConfig() {
-      const data = await apiCall('/config');
-      const grid = document.getElementById('configGrid');
-
-      if (data.error) {
-        grid.innerHTML = `<p style="color: #c62828;">Error loading config</p>`;
-        return;
-      }
-
-      if (Array.isArray(data.discordWebhookUrls)) {
-        currentWebhookUrls = data.discordWebhookUrls;
-        renderWebhookList(currentWebhookUrls);
-      }
-
-      const configEntries = Object.entries(data).filter(([key]) => key !== 'discordWebhookUrls');
-      grid.innerHTML = configEntries
-        .map(([key, value]) => `
-          <div class="config-item">
-            <div class="config-label">${key}</div>
-            <div class="config-value">${htmlEscape(String(value))}</div>
-          </div>
-        `)
-        .join('');
+    function channelList() {
+      const urls = state.config?.discordWebhookUrls;
+      return Array.isArray(urls) ? urls.map(describeChannel) : null;
     }
 
-    function renderWebhookList(urls) {
-      const list = document.getElementById('webhookList');
-      const countEl = document.getElementById('webhookCount');
-      const addBtn = document.getElementById('addWebhookBtn');
+    const latestCount = () => toCount(state.config?.forwardLatestCount) || 5;
 
-      countEl.textContent = `(${urls.length}/5)`;
-      addBtn.disabled = urls.length >= 5;
-
-      if (urls.length === 0) {
-        list.innerHTML = '<div style="color: #999; font-size: 0.9em;">No webhook URLs configured</div>';
-        return;
+    // Keeps only what's needed to attribute a post to a channel. Accepts entries with a full webhookUrl,
+    // a redacted one, a webhookId, or a webhook index.
+    function postRef(entry) {
+      if (!entry || typeof entry !== 'object') return {};
+      const index = [entry.webhookIndex, entry.channelIndex, entry.index].find((v) => Number.isInteger(v));
+      let id = '';
+      if (typeof entry.webhookId === 'string' || typeof entry.webhookId === 'number') {
+        id = String(entry.webhookId).replace(/\D/g, '');
       }
-
-      list.innerHTML = urls
-        .map((url, i) => `
-          <div class="webhook-item">
-            <span class="webhook-index">#${i + 1}</span>
-            <span class="webhook-url">${htmlEscape(url)}</span>
-            <button class="webhook-remove" onclick="removeWebhook(${i})" ${urls.length <= 1 ? 'disabled title="Cannot remove the last URL"' : ''}>✕</button>
-          </div>
-        `)
-        .join('');
+      let head = '';
+      if (typeof entry.webhookUrl === 'string') {
+        if (!id) id = describeChannel(entry.webhookUrl).id;
+        head = entry.webhookUrl.slice(0, 50);
+      }
+      return { index, id, head };
     }
 
-    async function loadLogs() {
-      const data = await apiCall('/logs');
-      const container = document.getElementById('logsContainer');
-
-      if (data.error || !data.logs) {
-        container.innerHTML = `<div class="log-line log-error">Error loading logs</div>`;
-        return;
-      }
-
-      container.innerHTML = data.logs
-        .map(log => {
-          let className = 'log-info';
-          if (log.includes('ERROR')) className = 'log-error';
-          else if (log.includes('WARN')) className = 'log-warn';
-          return `<div class="log-line ${className}">${htmlEscape(log)}</div>`;
-        })
-        .join('');
+    function summarizePosts(raw) {
+      const list = raw.lastSentDiscordMessages;
+      if (Array.isArray(list)) return { total: list.length, refs: list.map(postRef) };
+      const count = [list, raw.lastSentDiscordMessageCount, raw.lastSentDiscordMessagesCount].find((v) => Number.isFinite(v));
+      return { total: count ?? null, refs: [] };
     }
 
-    async function loadCheckpoint() {
-      const data = await apiCall('/checkpoint');
-      const container = document.getElementById('checkpointContainer');
+    function summarizeCheckpoint(raw) {
+      if (!raw || typeof raw !== 'object' || raw.error) return null;
+      if (raw.status === 'Not initialized') return { initialized: false };
+      const ids = Array.isArray(raw.lastOnceLatestIds)
+        ? raw.lastOnceLatestIds.filter((id) => typeof id === 'string' || typeof id === 'number').map(String)
+        : [];
+      return {
+        initialized: true,
+        day: typeof raw.day === 'string' ? raw.day : null,
+        runAt: parseTime(raw.lastOnceRunAt),
+        ids,
+        posts: summarizePosts(raw),
+      };
+    }
 
-      if (data.status === 'Not initialized') {
-        const cached = readCachedCheckpoint();
-        if (cached) {
-          renderCheckpoint(cached, true);
-          return;
+    function activeCheckpoint() {
+      const polled = state.checkpoint;
+      const fromRun = state.runCheckpoint;
+      if (fromRun?.runAt && (!polled?.runAt || fromRun.runAt > polled.runAt)) return { ...fromRun, fromRun: true };
+      return polled;
+    }
+
+    function postsByChannel(posts, channels) {
+      const counts = channels.map(() => 0);
+      let attributed = 0;
+      for (const ref of posts?.refs || []) {
+        let i = -1;
+        if (Number.isInteger(ref.index) && ref.index >= 0 && ref.index < channels.length) {
+          i = ref.index;
+        } else if (ref.id && ref.id.length >= 6) {
+          i = channels.findIndex((c) => c.id.length >= 6 && (ref.id.startsWith(c.id) || c.id.startsWith(ref.id)));
+        }
+        if (i < 0 && ref.head) i = channels.findIndex((c) => c.head && ref.head.startsWith(c.head));
+        if (i >= 0) {
+          counts[i] += 1;
+          attributed += 1;
         }
       }
-
-      if (data.error) {
-        container.innerHTML = `<div style="color: #c62828;">Error loading checkpoint</div>`;
-        return;
-      }
-
-      if (data.status) {
-        container.innerHTML = `<div class="checkpoint-item"><div class="checkpoint-value">${data.status}</div></div>`;
-        return;
-      }
-
-      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
-        container.innerHTML = `<div class="checkpoint-item"><div class="checkpoint-value">No checkpoint data available</div></div>`;
-        return;
-      }
-
-      renderCheckpoint(data, false);
+      return { counts, attributed };
     }
+
+    const LOG_RE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.(\d{3}))? (INFO|WARN|ERROR) ([\s\S]*)$/;
+    const BARE_RE = /^(INFO|WARN|ERROR) ([\s\S]*)$/;
+
+    // Handles file lines ("2026-10-19 14:52:07.412 INFO message {json}") and the timestamp-free
+    // lines a Vercel /api/run response carries ("INFO message {json}").
+    function parseLogLine(line, fallbackTime) {
+      const text = maskSecrets(line);
+      let time = null;
+      let level = 'info';
+      let rest = text;
+      let m = text.match(LOG_RE);
+      if (m) {
+        // No offset in the string, so this parses as local time, matching src/logger.js.
+        time = parseTime(`${m[1]}T${m[2]}${m[3] ? `.${m[3]}` : ''}`);
+        level = m[4].toLowerCase();
+        rest = m[5];
+      } else if ((m = text.match(BARE_RE))) {
+        time = fallbackTime;
+        level = m[1].toLowerCase();
+        rest = m[2];
+      }
+      let message = rest;
+      let details = null;
+      const brace = rest.indexOf(' {');
+      if (brace >= 0) {
+        try {
+          const parsed = JSON.parse(rest.slice(brace + 1));
+          if (parsed && typeof parsed === 'object') {
+            details = parsed;
+            message = rest.slice(0, brace);
+          }
+        } catch {
+          // Not JSON: keep the whole line as the message.
+        }
+      }
+      return { text, time, level, message, details };
+    }
+
+    function parseLines(lines, fallbackTime) {
+      const seen = new Map();
+      return lines
+        .filter((line) => typeof line === 'string' && line.trim())
+        .slice(0, 200)
+        .map((line) => {
+          const parsed = parseLogLine(line, fallbackTime);
+          const n = (seen.get(parsed.text) || 0) + 1;
+          seen.set(parsed.text, n);
+          return { ...parsed, key: `${n}|${parsed.text}` };
+        });
+    }
+
+    const visibleLogs = () => (state.logs.length ? state.logs : state.runLogs);
+
+    function subjectMap() {
+      const map = new Map();
+      for (const line of [...state.runLogs, ...state.logs]) {
+        if (line.message === 'Forwarded message to Discord' && line.details?.id && line.details.subject != null) {
+          map.set(String(line.details.id), String(line.details.subject));
+        }
+      }
+      return map;
+    }
+
+    function classify(sent, skipped) {
+      if (sent > 0) return { kind: 'posted', sent, skipped: 0 };
+      if (skipped > 0) return { kind: 'skipped', sent: 0, skipped };
+      return { kind: 'nothing', sent: 0, skipped: 0 };
+    }
+
+    function resultFromLogs(runAt, ck) {
+      for (const line of visibleLogs()) {
+        const kind = OUTCOME_MARKERS[line.message];
+        if (!kind || !line.time) continue;
+        // The newest outcome line belongs to some other run.
+        if (Math.abs(line.time - runAt) > SAME_RUN_MS) return null;
+        if (kind === 'posted') return classify(Math.max(ck.ids.length, 1), 0);
+        if (kind === 'skipped') return classify(0, ck.ids.length || latestCount());
+        return classify(0, 0);
+      }
+      return null;
+    }
+
+    // What the run at checkpoint.lastOnceRunAt did. Sources, most reliable first:
+    // this browser's record of that run, the log, the server's in-memory lastRunResult, an empty window.
+    function resultFor(runAt, ck) {
+      const rec = state.lastRun;
+      if (rec && rec.kind !== 'failed' && rec.runAt === runAt) return classify(rec.sent, rec.skipped);
+      const fromLog = resultFromLogs(runAt, ck);
+      if (fromLog) return fromLog;
+      const r = state.status?.lastRunResult;
+      if (r && typeof r === 'object' && ('sent' in r || 'skipped' in r)) return classify(toCount(r.sent), toCount(r.skipped));
+      if (!ck.ids.length) return classify(0, 0);
+      return { kind: 'unknown' };
+    }
+
+    function computeOutcome() {
+      const ck = activeCheckpoint();
+      const runAt = ck?.initialized ? ck.runAt : null;
+      const rec = state.lastRun;
+      if (state.inFlight || state.status?.isRunning === true) return { kind: 'running' };
+      // A failed run doesn't save the checkpoint, so the failure stands until lastOnceRunAt moves.
+      if (rec?.kind === 'failed' && (runAt ?? null) === rec.prevRunAt) return { kind: 'failed', rec };
+      // The run answered but the checkpoint here hasn't moved yet (the next poll, or a lagging Vercel instance).
+      if (rec && rec.kind !== 'failed' && rec.runAt === null && (runAt ?? null) === rec.prevRunAt) {
+        return { ...classify(rec.sent, rec.skipped), at: rec.at };
+      }
+      if (runAt) return { ...resultFor(runAt, ck), at: runAt };
+      if (!state.loaded) return { kind: 'loading' };
+      const channels = channelList();
+      if (channels && channels.length === 0) return { kind: 'blocked' };
+      if (state.status?.gmailConfigured === false) return { kind: 'nogmail' };
+      return { kind: 'first' };
+    }
+
+    /* Rendering */
+
+    function renderHead(outcome) {
+      const channels = channelList();
+      let tone = 'ok';
+      let text = 'Ready';
+      if (state.statusError) [tone, text] = ['err', "Can't reach server"];
+      else if (outcome.kind === 'loading') [tone, text] = ['idle', 'Loading'];
+      else if (outcome.kind === 'running') [tone, text] = ['signal', 'Running'];
+      else if (outcome.kind === 'failed') [tone, text] = ['err', 'Needs attention'];
+      else if ((channels && channels.length === 0) || state.status?.gmailConfigured === false) [tone, text] = ['warn', 'Setup needed'];
+      setTone($('headPill'), tone);
+      setText($('headPillText'), text);
+
+      let checked = 'Connecting…';
+      if (state.statusError) {
+        checked = state.lastOkAt ? `Last reached ${clock(new Date(state.lastOkAt))} · retrying every 5 s` : 'Retrying every 5 s';
+      } else if (state.lastOkAt) {
+        checked = `Checked ${clock(new Date(state.lastOkAt))} · refreshes every 5 s`;
+      }
+      setText($('checkedAt'), checked);
+    }
+
+    function gmailState(outcome) {
+      if (outcome.kind === 'failed' && outcome.rec.code === 'invalid_grant') return ['err', 'Sign-in expired'];
+      const configured = state.status?.gmailConfigured;
+      if (configured === true) return ['ok', 'Connected'];
+      if (configured === false) return ['warn', 'Not connected'];
+      return ['idle', 'Checking'];
+    }
+
+    function renderRoute(outcome) {
+      const cfg = state.config;
+      const N = latestCount();
+      const channels = channelList();
+      const n = channels ? channels.length : null;
+      const ck = activeCheckpoint();
+      const ids = ck?.initialized ? ck.ids : [];
+
+      const [gTone, gText] = gmailState(outcome);
+      setTone($('stopGmail'), gTone);
+      setText($('gmailQuery'), cfg?.gmailQuery || '…');
+      setHTML($('gmailState'), `<span class="chip" data-tone="${gTone}">${htmlEscape(gText)}</span>`);
+
+      setTone($('stopFilter'), cfg ? 'ok' : 'idle');
+      setText($('senderFilter'), cfg?.gmailSenderFilter || '…');
+      setText($('filterState'), cfg ? `Checks the ${toCount(cfg.gmailFetchLimit)} newest results` : '');
+
+      setText($('windowTitle'), `Latest ${N}`);
+      const last = ck?.runAt ? resultFor(ck.runAt, ck).kind : null;
+      const pipKind = last === 'posted' ? 'new' : 'seen';
+      setHTML($('pips'), Array.from({ length: N }, (_, i) => `<span class="pip" data-k="${i < ids.length ? pipKind : 'empty'}"></span>`).join(''));
+      const windowText = {
+        posted: [ids.length < N ? `Only ${ids.length} matched, so it always posts` : 'Differs from the last run', 'ok'],
+        skipped: [`Same ${N} as the last run`, 'warn'],
+        nothing: ['No matching email', 'idle'],
+        unknown: [`${plural(ids.length, 'ID')} saved`, 'idle'],
+        running: ['Comparing after fetch', 'signal'],
+        failed: ['Not checked', 'idle'],
+        loading: ['', 'idle'],
+      }[outcome.kind] || ['Fills after the first run', 'idle'];
+      setText($('windowState'), windowText[0]);
+      setTone($('stopWindow'), windowText[1]);
+
+      const total = ck?.initialized ? ck.posts.total : null;
+      setTone($('stopDiscord'), n === null ? 'idle' : n ? 'ok' : 'warn');
+      setText($('discordValue'), n === null ? '' : n ? plural(n, 'channel') : 'No channels');
+      if (n === 0) setHTML($('discordState'), '<span class="chip" data-tone="warn">Add one to start</span>');
+      else if (total) setHTML($('discordState'), htmlEscape(`${plural(total, 'post')} tracked`));
+      else setHTML($('discordState'), n ? 'No posts tracked' : '');
+
+      $('route').dataset.running = String(outcome.kind === 'running');
+
+      const runBtn = $('runBtn');
+      let label = 'Run now';
+      let disabled = false;
+      let note = n ? `Posts the latest ${N} to ${plural(n, 'channel')}.` : '';
+      if (outcome.kind === 'running') {
+        disabled = true;
+        label = 'Running';
+        note = 'Usually takes a few seconds.';
+      } else if (!state.loaded) {
+        disabled = true;
+      } else if (n === 0) {
+        disabled = true;
+        note = 'Add a Discord channel first.';
+      } else if (state.status?.gmailConfigured === false) {
+        disabled = true;
+        note = 'Connect Gmail first.';
+      } else if (outcome.kind === 'failed' && outcome.rec.code === 'invalid_grant') {
+        note = 'Reconnect Gmail, then run again.';
+      }
+      if (state.runNote && state.runNote.until > Date.now()) note = state.runNote.text;
+      runBtn.disabled = disabled;
+      setText($('runLabel'), label);
+      setText($('runNote'), note);
+    }
+
+    function figures(pairs) {
+      return `<dl class="figures">${pairs.map(([k, v]) => `<div><dt>${htmlEscape(k)}</dt><dd>${htmlEscape(v)}</dd></div>`).join('')}</dl>`;
+    }
+
+    function copyCommand(cmd) {
+      return `<code>${htmlEscape(cmd)}</code> <button type="button" class="btn small quiet" data-copy="${htmlEscape(cmd)}">Copy</button>`;
+    }
+
+    function renderOutcome(outcome) {
+      const cfg = state.config;
+      const N = latestCount();
+      const channels = channelList();
+      const n = channels ? channels.length : 0;
+      const ck = activeCheckpoint();
+      const filter = cfg?.gmailSenderFilter || 'the sender filter';
+      let tone = 'idle';
+      let html = '';
+
+      switch (outcome.kind) {
+        case 'posted':
+          tone = 'ok';
+          html = `<span class="chip" data-tone="ok">Posted</span>
+            <p class="outcome-head">Posted ${htmlEscape(plural(outcome.sent, 'email'))} to ${htmlEscape(plural(n, 'channel'))}</p>
+            <p class="outcome-body">Removed the previous run's posts, then posted the latest ${htmlEscape(outcome.sent)} to each channel.</p>
+            ${figures([['Emails', outcome.sent], ['Channels', n], ['Posts tracked', ck?.posts?.total ?? '—'], ['Skipped', 0]])}`;
+          break;
+        case 'skipped':
+          tone = 'warn';
+          html = `<span class="chip" data-tone="warn">Skipped</span>
+            <p class="outcome-head">No new email since the last run</p>
+            <p class="outcome-body">The latest ${htmlEscape(N)} are the same emails, in the same order, as last time. Nothing was posted, and your channels still show those ${htmlEscape(N)}.</p>
+            ${figures([['Posted', 0], ['Skipped', outcome.skipped], ['Channels', n]])}`;
+          break;
+        case 'nothing':
+          tone = 'idle';
+          html = `<span class="chip" data-tone="idle">Nothing found</span>
+            <p class="outcome-head">No email from ${htmlEscape(filter)} found</p>
+            <p class="outcome-body">Gmail had nothing from <code>${htmlEscape(filter)}</code> for <code>${htmlEscape(cfg?.gmailQuery || '')}</code>. Nothing was posted, and earlier posts were left alone.</p>
+            ${figures([['Posted', 0], ['Skipped', 0], ['Channels', n]])}`;
+          break;
+        case 'unknown':
+          tone = 'idle';
+          html = `<span class="chip" data-tone="idle">Finished</span>
+            <p class="outcome-head">Last run finished</p>
+            <p class="outcome-body">The server no longer has this run's result. It restarted, or another instance ran it. The window it saved is below, and the next run shows a full result.</p>`;
+          break;
+        case 'running':
+          tone = 'signal';
+          html = `<span class="chip" data-tone="signal">Running</span>
+            <p class="outcome-head">Checking Gmail for ${htmlEscape(filter)} email</p>
+            <p class="outcome-body">Fetching recent mail, comparing it with the last run, then posting. The page updates when the run finishes.</p>
+            <div class="progress" role="progressbar" aria-label="Run in progress"><span></span></div>`;
+          break;
+        case 'failed': {
+          tone = 'err';
+          const { rec } = outcome;
+          if (rec.code === 'invalid_grant') {
+            html = `<span class="chip" data-tone="err">Failed</span>
+              <p class="outcome-head">Gmail sign-in expired</p>
+              <p class="errbox">${htmlEscape(rec.message)}</p>
+              <ol class="fix">
+                <li><span class="cmd">On your computer, run ${copyCommand('npm run auth')}</span></li>
+                <li>Deployed on Vercel: run <code>npm run token:upload</code> to replace <code>GMAIL_TOKEN_JSON_BASE64</code>, then <code>npm run deploy</code>. Running locally: restart <code>npm run ui</code> so it loads the new token.</li>
+                <li>Come back and run again.</li>
+              </ol>`;
+          } else {
+            html = `<span class="chip" data-tone="err">Failed</span>
+              <p class="outcome-head">${rec.code === 'unreachable' ? "Couldn't reach the forwarder" : 'The run failed'}</p>
+              <p class="errbox">${htmlEscape(rec.message || 'No error message was returned.')}</p>
+              <p class="outcome-body">Check Activity below for the last step that ran, then try again.</p>`;
+          }
+          break;
+        }
+        case 'nogmail':
+          tone = 'warn';
+          html = `<span class="chip" data-tone="warn">Setup needed</span>
+            <p class="outcome-head">Connect Gmail to start</p>
+            <ol class="fix">
+              <li><span class="cmd">On your computer, run ${copyCommand('npm run auth')}</span> It opens Google sign-in and saves the token.</li>
+              <li>Restart <code>npm run ui</code> so it loads the token.</li>
+            </ol>`;
+          break;
+        case 'first':
+          tone = 'idle';
+          html = `<span class="chip" data-tone="idle">Not run yet</span>
+            <p class="outcome-head">Ready for the first run</p>
+            <p class="outcome-body">Run now to post the latest ${htmlEscape(N)} emails from <code>${htmlEscape(filter)}</code> to ${htmlEscape(plural(n, 'channel'))}.</p>`;
+          break;
+        case 'blocked':
+          tone = 'warn';
+          html = `<span class="chip" data-tone="warn">Setup needed</span>
+            <p class="outcome-head">Add a Discord channel to start</p>
+            <p class="outcome-body">A run needs at least one webhook to post to. Paste one under Discord channels.</p>`;
+          break;
+        default:
+          html = `<span class="chip" data-tone="idle">Loading</span>
+            <p class="outcome-head">Checking the forwarder…</p>`;
+      }
+      const box = $('outcome');
+      setTone(box, tone);
+      setHTML(box, html);
+    }
+
+    function renderRunTime(outcome) {
+      let text = 'Not run yet';
+      if (outcome.kind === 'loading') text = '';
+      else if (outcome.kind === 'running') text = state.runStartedAt ? `Started ${clock(new Date(state.runStartedAt))}` : 'In progress';
+      else if (outcome.kind === 'failed') text = `Failed ${dayLabel(new Date(outcome.rec.at))} ${clock(new Date(outcome.rec.at))} · ${ago(outcome.rec.at)}`;
+      else if (outcome.at) text = `${dayLabel(new Date(outcome.at))} ${clock(new Date(outcome.at))} · ${ago(outcome.at)}`;
+      setText($('lastRunTime'), text);
+    }
+
+    function renderDupe(outcome) {
+      const N = latestCount();
+      const ck = activeCheckpoint();
+      const table = $('dupeTable');
+      const stale = $('dupeStale');
+      setText($('dupeIntro'), `A run posts only when the latest ${N} emails differ from the ones the last run saw. Positions run oldest to newest.`);
+
+      const showStale = Boolean(ck?.runAt) && (outcome.kind === 'running' || outcome.kind === 'failed');
+      stale.hidden = !showStale;
+      setText(stale, showStale ? `Showing the window from the last completed run, ${clock(new Date(ck.runAt))}.` : '');
+
+      if (!ck?.initialized || !ck.runAt) {
+        setHTML(table, '<div class="chan-empty" role="row"><span role="cell"><strong>No comparison yet</strong>It appears after the first run.</span></div>');
+        setHTML($('verdict'), '');
+        return;
+      }
+      const { ids } = ck;
+      if (!ids.length) {
+        setHTML(table, '<div class="chan-empty" role="row"><span role="cell"><strong>No emails in the saved window</strong>The last run found no matching email.</span></div>');
+        setHTML($('verdict'), 'No emails matched, so there was nothing to compare.');
+        return;
+      }
+
+      const last = resultFor(ck.runAt, ck).kind;
+      const subjects = subjectMap();
+      const mark = {
+        skipped: '<span class="chip" data-tone="warn">Same</span>',
+        posted: '<span class="chip" data-tone="signal">Posted</span>',
+      }[last] || '';
+      const rows = ids.map((id, i) => {
+        const subject = subjects.get(id);
+        return `<div class="dupe-row" role="row" data-same="${last === 'skipped'}">
+          <span class="pos" role="cell">${i + 1}</span>
+          <div class="mail" role="cell"><code>${htmlEscape(id)}</code>${subject ? `<span class="subj">${htmlEscape(subject)}</span>` : ''}</div>
+          <span class="match" role="cell">${mark}</span>
+        </div>`;
+      });
+      setHTML(table, `<div class="dupe-row head" role="row">
+          <span class="pos eyebrow" role="columnheader">#</span>
+          <span class="eyebrow" role="columnheader">Saved window</span>
+          <span class="match eyebrow" role="columnheader">Result</span>
+        </div>${rows.join('')}`);
+
+      let verdict = `The next run compares its latest ${htmlEscape(N)} with these.`;
+      if (last === 'skipped') verdict = `<strong>All ${htmlEscape(N)} match</strong> the previous run's window, so the run was skipped.`;
+      else if (last === 'posted' && ids.length < N) verdict = `<strong>Only ${htmlEscape(plural(ids.length, 'email'))} matched.</strong> The duplicate check needs ${htmlEscape(N)}, so the run posted.`;
+      else if (last === 'posted') verdict = `<strong>The window differed</strong> from the previous run's, so the run posted all ${htmlEscape(ids.length)}.`;
+      setHTML($('verdict'), verdict);
+    }
+
+    function channelURL(c) {
+      if (c.path) {
+        return `<span class="chan-url"><span class="dim pre">${htmlEscape(c.host + c.path)}</span>${htmlEscape(c.id)}<span class="dim">…/••••</span></span>`;
+      }
+      return `<span class="chan-url">${htmlEscape(c.host)}<span class="dim">/…/••••</span></span>`;
+    }
+
+    function renderChannels() {
+      const channels = channelList();
+      const n = channels ? channels.length : 0;
+      if (state.pendingRemove >= n) state.pendingRemove = -1;
+
+      setHTML($('slots'), Array.from({ length: MAX_CHANNELS }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join(''));
+      setText($('slotText'), channels ? `${n} of ${MAX_CHANNELS}` : '');
+
+      const list = $('chanList');
+      if (!channels) {
+        setHTML(list, state.configError
+          ? `<li class="chan-empty"><strong>Couldn't load channels</strong>${htmlEscape(maskSecrets(state.configError))}</li>`
+          : '<li class="chan-empty">Loading channels…</li>');
+      } else if (!n) {
+        setHTML(list, '<li class="chan-empty"><strong>No channels yet</strong>Paste a Discord webhook URL below to start forwarding.</li>');
+      } else {
+        const ck = activeCheckpoint();
+        const posts = ck?.initialized ? ck.posts : null;
+        const { counts, attributed } = postsByChannel(posts, channels);
+        const busy = state.busyChannels ? 'disabled' : '';
+        const changed = setHTML(list, channels.map((c, i) => {
+          if (i === state.pendingRemove) {
+            return `<li class="chan confirming">
+              <span class="chan-idx">${i + 1}</span>
+              <div class="chan-main">${channelURL(c)}</div>
+              <span></span>
+              <div class="confirm">
+                <p>Remove this channel? Future runs won't post here.</p>
+                <button type="button" class="btn small danger" data-confirm="${i}" ${busy}>Remove</button>
+                <button type="button" class="btn small" data-cancel="${i}" ${busy}>Keep</button>
+              </div>
+            </li>`;
+          }
+          let meta = '';
+          if (posts?.total === 0) meta = 'No posts tracked';
+          else if (attributed) meta = counts[i] ? `${plural(counts[i], 'live post')}` : 'No posts tracked';
+          const lock = n <= 1 ? 'disabled aria-describedby="keepNote"' : busy;
+          return `<li class="chan">
+            <span class="chan-idx">${i + 1}</span>
+            <div class="chan-main">${channelURL(c)}${meta ? `<span class="chan-meta">${htmlEscape(meta)}</span>` : ''}</div>
+            <button type="button" class="btn small quiet" data-remove="${i}" ${lock} aria-label="Remove channel ${i + 1}">Remove</button>
+          </li>`;
+        }).join(''));
+        if (changed && state.pendingRemove >= 0 && !state.busyChannels) list.querySelector('[data-cancel]')?.focus();
+      }
+      $('keepNote').hidden = n !== 1;
+      $('fullNote').hidden = n < MAX_CHANNELS;
+      $('addBtn').disabled = !channels || n >= MAX_CHANNELS || state.busyChannels;
+    }
+
+    function renderCheckpoint() {
+      const ck = activeCheckpoint();
+      const N = latestCount();
+      const body = $('ckptBody');
+      setText($('ckptMeta'), ck?.fromRun ? "From this browser's last run" : 'Saved after every run');
+
+      if (!ck) {
+        setHTML(body, state.checkpointError
+          ? `<p class="ckpt-empty">Couldn't load the checkpoint. ${htmlEscape(maskSecrets(state.checkpointError))}</p>`
+          : '<p class="ckpt-empty">Loading the checkpoint…</p>');
+        setHTML($('ckptActions'), '');
+        return;
+      }
+      if (!ck.initialized) {
+        setHTML(body, "<p class=\"ckpt-empty\">No checkpoint yet. It's written after the first run.</p>");
+        setHTML($('ckptActions'), '');
+        return;
+      }
+
+      const ran = ck.runAt ? new Date(ck.runAt) : null;
+      const total = ck.posts.total;
+      setHTML(body, `<dl class="ckpt-list">
+        <div><dt>Day</dt><dd>${htmlEscape(ck.day || '—')}</dd></div>
+        <div><dt>Last run</dt><dd>${ran ? htmlEscape(clock(ran)) : '—'}<small>${htmlEscape(ran ? ago(ck.runAt) : 'Not run yet')}</small></dd></div>
+        <div><dt>Discord posts tracked</dt><dd>${htmlEscape(total ?? '—')}<small>${total ? 'Removed before the next post' : 'None tracked'}</small></dd></div>
+        <div><dt>Saved window</dt><dd>${htmlEscape(plural(ck.ids.length, 'ID'))}<small>Compared on the next run</small></dd></div>
+      </dl>`);
+
+      const actions = $('ckptActions');
+      const busy = state.deleting ? 'disabled' : '';
+      let html;
+      if (state.confirmDelete) {
+        html = `<div class="confirm-box">
+          <p>Delete ${total ? `all ${htmlEscape(plural(total, 'tracked post'))}` : 'the tracked posts'} from your channels? Runs then skip until a new email arrives, because the latest ${htmlEscape(N)} haven't changed.</p>
+          <button type="button" class="btn small danger" data-del-confirm ${busy}>Delete posts</button>
+          <button type="button" class="btn small" data-del-cancel ${busy}>Keep</button>
+        </div>`;
+      } else {
+        html = `<button type="button" class="btn small" data-del ${total === 0 || state.deleting ? 'disabled' : ''}>Delete tracked posts</button>`;
+      }
+      const changed = setHTML(actions, html);
+      if (changed && state.confirmDelete && !state.deleting) actions.querySelector('[data-del-cancel]')?.focus();
+    }
+
+    function logLineHTML(line) {
+      const tones = { info: 'idle', warn: 'warn', error: 'err' };
+      const kvs = line.details
+        ? `<span class="kvs">${Object.entries(line.details).map(([k, v]) => {
+          const value = v !== null && typeof v === 'object' ? JSON.stringify(v) : v;
+          return `<span><span class="k">${htmlEscape(k)}</span> ${htmlEscape(value)}</span>`;
+        }).join('')}</span>`
+        : '';
+      let stamp = '—';
+      let datetime = '';
+      if (line.time) {
+        const d = new Date(line.time);
+        stamp = sameDay(d, new Date()) ? clockMs(d) : `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${clock(d)}`;
+        datetime = ` datetime="${htmlEscape(d.toISOString())}"`;
+      }
+      return `<time${datetime}>${htmlEscape(stamp)}</time><span class="chip" data-tone="${tones[line.level] || 'idle'}">${htmlEscape(line.level)}</span><div class="log-msg"><span>${htmlEscape(line.message)}</span>${kvs}</div>`;
+    }
+
+    let logSig = null;
+    let logFilterShown = 'all';
+    let logNodes = new Map();
+
+    // Reuses the <li> for every line it already shows, so a 5-second refresh with no new lines
+    // touches nothing, and new lines don't move what the reader has scrolled to.
+    function renderLog() {
+      const levels = { all: ['info', 'warn', 'error'], warn: ['warn', 'error'], error: ['error'] }[state.logFilter];
+      const source = visibleLogs();
+      const lines = source.filter((l) => levels.includes(l.level));
+
+      let meta = 'Newest first';
+      if (state.logs.length) meta = `Newest first · last ${plural(state.logs.length, 'line')}`;
+      else if (state.runLogs.length) meta = 'Newest first · from the last run in this browser';
+      setText($('logMeta'), meta);
+
+      let empty = 'No activity yet. Each run adds its steps here.';
+      if (state.logsError && !source.length) empty = `Couldn't load the log. ${maskSecrets(state.logsError)}`;
+      else if (source.length) empty = `No ${state.logFilter === 'error' ? 'errors' : 'warnings or errors'} in the recent log.`;
+
+      const sig = `${state.logFilter}\n${lines.length ? lines.map((l) => l.key).join('\n') : empty}`;
+      if (sig === logSig) return;
+      logSig = sig;
+
+      const list = $('log');
+      const filterChanged = logFilterShown !== state.logFilter;
+      logFilterShown = state.logFilter;
+      const top = list.scrollTop;
+      const height = list.scrollHeight;
+      const next = new Map();
+      const frag = document.createDocumentFragment();
+      if (!lines.length) {
+        const li = document.createElement('li');
+        li.className = 'log-empty';
+        li.textContent = empty;
+        frag.append(li);
+      }
+      for (const line of lines) {
+        let li = logNodes.get(line.key);
+        if (!li) {
+          li = document.createElement('li');
+          li.className = 'log-line';
+          li.innerHTML = logLineHTML(line);
+        }
+        next.set(line.key, li);
+        frag.append(li);
+      }
+      logNodes = next;
+      list.replaceChildren(frag);
+      if (filterChanged) list.scrollTop = 0;
+      else if (top > 0) list.scrollTop = top + (list.scrollHeight - height);
+    }
+
+    function render() {
+      const outcome = computeOutcome();
+      renderHead(outcome);
+      renderRoute(outcome);
+      renderOutcome(outcome);
+      renderRunTime(outcome);
+      renderDupe(outcome);
+      renderChannels();
+      renderCheckpoint();
+      renderLog();
+    }
+
+    /* Polling */
+
+    let polling = null;
+    let queued = null;
+
+    async function pollOnce({ withConfig }) {
+      const [status, checkpoint, logs, config] = await Promise.all([
+        apiCall('/status'),
+        apiCall('/checkpoint'),
+        apiCall('/logs'),
+        withConfig ? apiCall('/config') : Promise.resolve(null),
+      ]);
+
+      if (status.ok) {
+        state.status = status.data;
+        state.statusError = null;
+        state.lastOkAt = Date.now();
+      } else {
+        state.statusError = status.data.error;
+      }
+
+      if (checkpoint.ok) {
+        state.checkpoint = summarizeCheckpoint(checkpoint.data);
+        state.checkpointError = null;
+      } else {
+        state.checkpointError = checkpoint.data.error;
+      }
+
+      if (logs.ok && Array.isArray(logs.data.logs)) {
+        state.logs = parseLines(logs.data.logs, null);
+        state.logsError = null;
+      } else if (!logs.ok) {
+        state.logsError = logs.data.error;
+      }
+
+      if (config) {
+        if (config.ok) {
+          state.config = config.data;
+          state.configError = null;
+        } else {
+          state.configError = config.data.error;
+        }
+      }
+      bindRunRecord();
+      state.loaded = true;
+    }
+
+    // Config isn't polled: it changes only through this page, and leaving it alone keeps
+    // the remove confirmation and the add field intact between refreshes.
+    async function poll(opts = {}) {
+      if (polling) {
+        queued = { withConfig: Boolean(queued?.withConfig || opts.withConfig) };
+        return polling;
+      }
+      polling = pollOnce({ withConfig: Boolean(opts.withConfig) });
+      try {
+        await polling;
+      } finally {
+        polling = null;
+        render();
+      }
+      if (queued) {
+        const next = queued;
+        queued = null;
+        await poll(next);
+      }
+      return undefined;
+    }
+
+    /* Actions */
 
     async function triggerRun() {
-      const button = document.getElementById('runButton');
-      button.disabled = true;
-      button.textContent = '▶ Running...';
+      if (state.inFlight || !state.loaded) return;
+      const prevRunAt = activeCheckpoint()?.runAt ?? null;
+      state.inFlight = true;
+      state.runStartedAt = Date.now();
+      state.runNote = null;
+      render();
 
-      const data = await apiCall('/run', 'POST');
+      const res = await apiCall('/run', 'POST');
+      const at = Date.now();
+      state.inFlight = false;
 
-      if (data.error) {
-        const container = document.getElementById('resultsContainer');
-        container.innerHTML = `<div class="status error">❌ ${htmlEscape(data.error)}</div>`;
+      if (Array.isArray(res.data.logs) && res.data.logs.length) {
+        // The capturing logger lists the run oldest first, without timestamps.
+        state.runLogs = parseLines([...res.data.logs].reverse(), at);
+      }
+      if (res.ok) {
+        if (res.data.checkpoint) state.runCheckpoint = summarizeCheckpoint(res.data.checkpoint);
+        saveRunRecord({
+          ...classify(toCount(res.data.sent), toCount(res.data.skipped)),
+          message: '',
+          code: null,
+          at,
+          prevRunAt,
+          runAt: null,
+        });
+        bindRunRecord();
+      } else if (res.status === 409) {
+        state.runNote = { text: 'A run is already in progress. This page updates when it finishes.', until: at + 15000 };
       } else {
-        renderLastRunResult(data, 'just now');
-        saveCachedLastRun(data);
-        if (data.checkpoint && typeof data.checkpoint === 'object') {
-          saveCachedCheckpoint(data.checkpoint);
-          renderCheckpoint(data.checkpoint, false);
-        }
+        const message = maskSecrets(res.data.error || 'The run failed.').slice(0, 600);
+        let code = null;
+        if (/invalid_grant/i.test(message)) code = 'invalid_grant';
+        else if (res.status === 0) code = 'unreachable';
+        saveRunRecord({ kind: 'failed', sent: 0, skipped: 0, message, code, at, prevRunAt, runAt: null });
       }
-
-      // Display logs captured during the run
-      if (Array.isArray(data.logs) && data.logs.length > 0) {
-        renderRunLogs(data.logs);
-      }
-
-      button.disabled = false;
-      button.textContent = '▶ Run Now';
-      await loadCheckpoint();
-      await loadStatus();
+      render();
+      await poll();
     }
 
-    function renderRunLogs(logs) {
-      const container = document.getElementById('logsContainer');
-      container.innerHTML = logs
-        .map(log => {
-          let className = 'log-info';
-          if (log.includes('ERROR')) className = 'log-error';
-          else if (log.includes('WARN')) className = 'log-warn';
-          return `<div class="log-line ${className}">${htmlEscape(log)}</div>`;
-        })
-        .join('');
+    function showMsg(el, text, tone) {
+      el.textContent = text;
+      if (tone) el.dataset.tone = tone;
+      else delete el.dataset.tone;
     }
 
-    function renderLastRunResult(data, note = '') {
-      const container = document.getElementById('resultsContainer');
-      const noteText = note ? ` (${note})` : '';
-      container.innerHTML = `
-        <div class="status success">
-          ✓ Run completed successfully${noteText}
-        </div>
-        <div class="checkpoint-item">
-          <div class="checkpoint-key">Messages Sent</div>
-          <div class="checkpoint-value">${data.sent ?? 0}</div>
-        </div>
-        <div class="checkpoint-item">
-          <div class="checkpoint-key">Messages Skipped</div>
-          <div class="checkpoint-value">${data.skipped ?? 0}</div>
-        </div>
-        <div class="checkpoint-item">
-          <div class="checkpoint-key">Timestamp</div>
-          <div class="checkpoint-value">${formatTimestamp(new Date())}</div>
-        </div>
-      `;
-    }
-
-    function renderCheckpoint(data, fromCache) {
-      const container = document.getElementById('checkpointContainer');
-      const badge = fromCache ? '<div class="status info" style="margin-bottom:8px;">Showing cached checkpoint</div>' : '';
-      const body = Object.entries(data)
-        .filter(([key]) => !key.startsWith('_'))
-        .map(([key, value]) => `
-          <div class="checkpoint-item">
-            <div class="checkpoint-key">${key}</div>
-            <div class="checkpoint-value">${htmlEscape(formatCheckpointValue(key, value))}</div>
-          </div>
-        `)
-        .join('');
-      container.innerHTML = `${badge}${body}`;
-    }
-
-    function formatCheckpointValue(key, value) {
-      if (typeof value === 'string' && (key.endsWith('At') || key.endsWith('RunAt'))) {
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          return formatTimestamp(date);
-        }
-      }
-      return JSON.stringify(value, null, 2);
-    }
-
-    function saveCachedLastRun(data) {
-      localStorage.setItem('lastRunResult', JSON.stringify(data));
-    }
-
-    function saveCachedCheckpoint(data) {
-      localStorage.setItem('lastCheckpoint', JSON.stringify(data));
-    }
-
-    function readCachedCheckpoint() {
-      try {
-        const raw = localStorage.getItem('lastCheckpoint');
-        return raw ? JSON.parse(raw) : null;
-      } catch {
-        return null;
+    // After a change, trust the server's count: on Vercel another instance can answer the next
+    // GET from a cache that hasn't seen the change yet.
+    async function refreshConfigAfterChange(optimistic, expectedCount) {
+      if (state.config) state.config = { ...state.config, discordWebhookUrls: optimistic };
+      const res = await apiCall('/config');
+      if (res.ok && Array.isArray(res.data.discordWebhookUrls)
+        && (!Number.isFinite(expectedCount) || res.data.discordWebhookUrls.length === expectedCount)) {
+        state.config = res.data;
+        state.configError = null;
       }
     }
 
-    function restoreLastRunFromCache() {
-      try {
-        const raw = localStorage.getItem('lastRunResult');
-        if (!raw) return;
-        const data = JSON.parse(raw);
-        if (data && typeof data === 'object') {
-          renderLastRunResult(data, 'cached');
-        }
-      } catch {
-        // ignore cache parse errors
-      }
-    }
-
-    async function deleteAllMessages() {
-      const button = document.getElementById('deleteMessagesBtn');
-      const statusDiv = document.getElementById('deleteMessagesStatus');
-      button.disabled = true;
-      button.textContent = '🗑 Checking...';
-      statusDiv.innerHTML = `<div class="status info">⏳ Checking sent messages...</div>`;
-
-      const data = await apiCall('/delete-messages', 'POST');
-
-      if (data.error) {
-        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(data.error)}</div>`;
-      } else if (data.noMessages) {
-        statusDiv.innerHTML = `<div class="status info">ℹ️ No message to delete</div>`;
+    async function removeChannel(index) {
+      const msg = $('addMsg');
+      state.busyChannels = true;
+      render();
+      const res = await apiCall('/config', 'POST', { action: 'remove', index });
+      state.busyChannels = false;
+      state.pendingRemove = -1;
+      if (res.ok) {
+        const urls = (state.config?.discordWebhookUrls || []).filter((_, i) => i !== index);
+        await refreshConfigAfterChange(urls, res.data.count);
+        showMsg(msg, 'Channel removed. The next run skips it.', 'ok');
       } else {
-        statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(data.message)}</div>`;
-        await loadCheckpoint();
+        showMsg(msg, maskSecrets(res.data.error || "Couldn't remove the channel."), 'err');
       }
-
-      button.disabled = false;
-      button.textContent = '🗑 Delete All Messages';
-      setTimeout(() => { statusDiv.innerHTML = ''; }, 4000);
+      render();
     }
 
-    async function refreshAll() {
-      await Promise.all([
-        loadStatus(),
-        loadConfig(),
-        loadLogs(),
-        loadCheckpoint(),
-      ]);
-    }
-
-    // Config rarely changes and each fetch costs a Vercel Blob "Advanced Request";
-    // poll only the fast-changing panels to stay well under the free-tier quota.
-    async function refreshPolling() {
-      await Promise.all([
-        loadStatus(),
-        loadLogs(),
-        loadCheckpoint(),
-      ]);
-    }
-
-    function htmlEscape(text) {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    function formatTimestamp(date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      const ms = String(date.getMilliseconds()).padStart(3, '0');
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-    }
-
-    async function addWebhook() {
-      const input = document.getElementById('webhookInput');
-      const webhook = input.value.trim();
-      const statusDiv = document.getElementById('webhookUpdateStatus');
-
-      if (!webhook) {
-        statusDiv.innerHTML = `<div class="status error">❌ Please enter a webhook URL</div>`;
-        return;
-      }
-
-      if (!webhook.startsWith('https://')) {
-        statusDiv.innerHTML = `<div class="status error">❌ Webhook URL must start with https://</div>`;
-        return;
-      }
-
-      statusDiv.innerHTML = `<div class="status info">⏳ Adding webhook...</div>`;
-
-      const result = await apiCall('/config', 'POST', { action: 'add', webhookUrl: webhook });
-
-      if (result.error) {
-        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
-      } else {
-        statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
+    async function addChannel(value) {
+      const msg = $('addMsg');
+      const input = $('webhookInput');
+      state.busyChannels = true;
+      showMsg(msg, 'Adding…');
+      render();
+      const res = await apiCall('/config', 'POST', { action: 'add', webhookUrl: value });
+      state.busyChannels = false;
+      if (res.ok) {
         input.value = '';
-        currentWebhookUrls = [...currentWebhookUrls, `${webhook.slice(0, 50)}...`];
-        renderWebhookList(currentWebhookUrls);
-        setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
-      }
-    }
-
-    async function removeWebhook(index) {
-      const statusDiv = document.getElementById('webhookUpdateStatus');
-      statusDiv.innerHTML = `<div class="status info">⏳ Removing webhook...</div>`;
-
-      const result = await apiCall('/config', 'POST', { action: 'remove', index });
-
-      if (result.error) {
-        statusDiv.innerHTML = `<div class="status error">❌ ${htmlEscape(result.error)}</div>`;
+        const urls = [...(state.config?.discordWebhookUrls || []), `${value.slice(0, 50)}...`];
+        await refreshConfigAfterChange(urls, res.data.count);
+        showMsg(msg, 'Channel added. The next run posts here too.', 'ok');
       } else {
-        statusDiv.innerHTML = `<div class="status success">✓ ${htmlEscape(result.message)}</div>`;
-        currentWebhookUrls = currentWebhookUrls.filter((_, i) => i !== index);
-        renderWebhookList(currentWebhookUrls);
-        setTimeout(() => { statusDiv.innerHTML = ''; }, 2000);
+        input.setAttribute('aria-invalid', 'true');
+        showMsg(msg, maskSecrets(res.data.error || "Couldn't add the channel."), 'err');
       }
+      render();
     }
 
-    // Load on startup
-    restoreLastRunFromCache();
-    refreshAll();
-    // Refresh every 5 seconds
-    setInterval(refreshPolling, 5000);
+    async function deletePosts() {
+      const msg = $('delMsg');
+      state.deleting = true;
+      showMsg(msg, 'Deleting…');
+      render();
+      const res = await apiCall('/delete-messages', 'POST');
+      state.deleting = false;
+      state.confirmDelete = false;
+      if (!res.ok) showMsg(msg, maskSecrets(res.data.error || "Couldn't delete the posts."), 'err');
+      else if (res.data.noMessages) showMsg(msg, 'There were no tracked posts to delete.', 'ok');
+      else showMsg(msg, maskSecrets(res.data.message || 'Posts deleted.'), res.data.failed > 0 ? 'warn' : 'ok');
+      state.runCheckpoint = null;
+      await poll();
+    }
+
+    /* Wiring */
+
+    $('runBtn').addEventListener('click', triggerRun);
+    $('refreshBtn').addEventListener('click', () => { poll({ withConfig: true }); });
+
+    $('logSeg').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-filter]');
+      if (!b) return;
+      state.logFilter = b.dataset.filter;
+      document.querySelectorAll('#logSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      renderLog();
+    });
+
+    $('chanList').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-remove]');
+      const ok = e.target.closest('[data-confirm]');
+      const cancel = e.target.closest('[data-cancel]');
+      if (rm && !rm.disabled) {
+        state.pendingRemove = Number(rm.dataset.remove);
+        renderChannels();
+      } else if (cancel) {
+        state.pendingRemove = -1;
+        renderChannels();
+        $('chanList').querySelector(`[data-remove="${Number(cancel.dataset.cancel)}"]`)?.focus();
+      } else if (ok && !ok.disabled) {
+        removeChannel(Number(ok.dataset.confirm));
+      }
+    });
+
+    $('ckptActions').addEventListener('click', (e) => {
+      if (e.target.closest('[data-del]')) {
+        state.confirmDelete = true;
+        showMsg($('delMsg'), '');
+        renderCheckpoint();
+      } else if (e.target.closest('[data-del-cancel]')) {
+        state.confirmDelete = false;
+        renderCheckpoint();
+        $('ckptActions').querySelector('[data-del]')?.focus();
+      } else if (e.target.closest('[data-del-confirm]')) {
+        deletePosts();
+      }
+    });
+
+    $('outcome').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-copy]');
+      if (!b) return;
+      const text = b.dataset.copy;
+      const done = (label) => {
+        b.textContent = label;
+        setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+      };
+      const fallback = () => {
+        const code = b.previousElementSibling;
+        if (code) {
+          const range = document.createRange();
+          range.selectNodeContents(code);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        done('Selected');
+      };
+      try {
+        navigator.clipboard.writeText(text).then(() => done('Copied'), fallback);
+      } catch {
+        fallback();
+      }
+    });
+
+    $('revealBtn').addEventListener('click', (e) => {
+      const input = $('webhookInput');
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      e.currentTarget.textContent = showing ? 'Show' : 'Hide';
+      e.currentTarget.setAttribute('aria-pressed', String(!showing));
+    });
+
+    $('addForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (state.busyChannels) return;
+      const input = $('webhookInput');
+      const msg = $('addMsg');
+      const value = input.value.trim();
+      const channels = channelList() || [];
+      const fail = (text) => {
+        input.setAttribute('aria-invalid', 'true');
+        showMsg(msg, text, 'err');
+      };
+      if (channels.length >= MAX_CHANNELS) return fail(`All ${MAX_CHANNELS} slots are in use. Remove one to add another.`);
+      if (!value) return fail('Paste a webhook URL first.');
+      if (!value.startsWith('https://')) return fail("Webhook URLs start with https://. Copy it again from the channel's webhook settings.");
+      if (channels.some((c) => c.head && value.slice(0, 50) === c.head)) return fail('That webhook is already in the list.');
+      input.removeAttribute('aria-invalid');
+      addChannel(value);
+    });
+
+    $('webhookInput').addEventListener('input', (e) => { e.target.removeAttribute('aria-invalid'); });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) poll();
+    });
+
+    render();
+    poll({ withConfig: true });
+    setInterval(() => {
+      if (!document.hidden) poll();
+    }, POLL_MS);
+  })();
   </script>
 </body>
 </html>
