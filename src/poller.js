@@ -90,13 +90,21 @@ export async function runPollCycle({ gmail, config, logger }) {
   const runStartedAtMs = Date.now();
   const latestForRun = selectLatestMatchingMessagesForRun(recentMessages, config, runStartedAtMs);
   const latestIds = latestForRun.map((message) => message.id);
+  // Runs that post nothing must keep tracking the previous posts, otherwise the
+  // next run that does post can't delete them and the channel collects duplicates.
+  const previousDiscordMessages = checkpoint.lastSentDiscordMessages ?? [];
 
   if (latestForRun.length === 0) {
     await logger.info('No matching messages found for this run', {
       senderFilter: config.gmailSenderFilter,
       latestCount: config.forwardLatestCount,
     });
-    const nextCheckpoint = buildCheckpointForOnceRun(checkpoint, latestIds, config.checkpointMaxIds);
+    const nextCheckpoint = buildCheckpointForOnceRun(
+      checkpoint,
+      latestIds,
+      config.checkpointMaxIds,
+      previousDiscordMessages,
+    );
     await saveCheckpoint(config.checkpointPath, nextCheckpoint);
     return { sent: 0, skipped: 0, initialized: false };
   }
@@ -105,7 +113,12 @@ export async function runPollCycle({ gmail, config, logger }) {
     await logger.info('Skipped once run because latest message window exactly matches previous once run', {
       latestCount: config.forwardLatestCount,
     });
-    const nextCheckpoint = buildCheckpointForOnceRun(checkpoint, latestIds, config.checkpointMaxIds);
+    const nextCheckpoint = buildCheckpointForOnceRun(
+      checkpoint,
+      latestIds,
+      config.checkpointMaxIds,
+      previousDiscordMessages,
+    );
     await saveCheckpoint(config.checkpointPath, nextCheckpoint);
     return { sent: 0, skipped: latestForRun.length, initialized: false };
   }
