@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "name": "Netflix to Discord Telemetry Console",
+  "description": "Production telemetry console and automated Gmail-to-Discord forwarder for Netflix verification and household management.",
+  "url": "https://netflix-to-discord-forwarder.vercel.app",
+  "resources": [
+    {
+      "type": "api",
+      "name": "Telemetry Snapshot",
+      "url": "/api/snapshot",
+      "method": "GET",
+      "description": "Returns current forwarding configuration, poll status, deduplication window checkpoint, and recent logs in a single JSON payload."
+    },
+    {
+      "type": "api",
+      "name": "Trigger Poll",
+      "url": "/api/poll",
+      "method": "POST",
+      "description": "Triggers an on-demand poll of Gmail for Netflix emails and dispatches to configured Discord channels."
+    },
+    {
+      "type": "api",
+      "name": "Discord Webhook Configuration",
+      "url": "/api/config",
+      "method": "POST",
+      "description": "Add or remove Discord webhook destinations."
+    }
+  ],
+  "contact": {
+    "name": "Support",
+    "url": "https://github.com/hoanglk12/netflix-to-discord-forwarder"
+  }
+}

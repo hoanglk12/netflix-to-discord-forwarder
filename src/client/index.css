@@ -10,8 +10,8 @@
   --border-subtle: #1f2b37;
   --border-strong: #324456;
   --text-primary: #e8eef4;
-  --text-secondary: #9fb0c2;
-  --text-muted: #6c7f93;
+  --text-secondary: #94a3b8;
+  --text-muted: #94a3b8;
   --accent-signal: #14b8a6;
   --accent-crimson: #e50914;
   --accent-blurple: #5865f2;
@@ -30,11 +30,27 @@ html.light {
   --border-strong: #94a3b8;
   --text-primary: #090d14;
   --text-secondary: #334155;
-  --text-muted: #64748b;
+  --text-muted: #475569;
   --accent-signal: #0f766e;
   --accent-crimson: #be123c;
   --accent-blurple: #4338ca;
   --grid-line: rgba(15, 23, 42, 0.04);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {

@@ -568,6 +568,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-16">
+      {/* Skip to Main Content Link for Keyboard / Screen Readers (WCAG 2.4.1) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-teal-600 focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg focus:outline-none"
+      >
+        Skip to main content
+      </a>
+
       {/* Top Broadcast Telemetry Header */}
       <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
@@ -609,18 +617,21 @@ export default function App() {
             <button
               type="button"
               onClick={() => setAutoPoll((v) => !v)}
+              aria-label={autoPoll ? 'Disable 10-second automatic background sync' : 'Enable 10-second automatic background sync'}
+              aria-pressed={autoPoll}
               title={autoPoll ? 'Auto-sync active (10s). Click to pause.' : 'Auto-sync paused. Click to resume.'}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
             >
               {autoPoll ? <RefreshCw className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" /> : <Pause className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
-              <span className="hidden sm:inline">{autoPoll ? '10s Sync' : 'Paused'}</span>
+              <span className="inline">{autoPoll ? '10s Sync' : 'Paused'}</span>
             </button>
 
             {/* Manual Refresh */}
             <button
               type="button"
               onClick={fetchSnapshot}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--border-strong)] cursor-pointer shadow-xs"
+              aria-label="Refresh telemetry snapshot now"
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--border-strong)] cursor-pointer shadow-xs"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Sync</span>
@@ -630,8 +641,8 @@ export default function App() {
             <button
               type="button"
               onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-              aria-label="Toggle color theme"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
+              aria-label={theme === 'dark' ? 'Switch to light color theme' : 'Switch to dark color theme'}
+              className="inline-flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -639,7 +650,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto mt-6 max-w-7xl space-y-6 px-4 sm:px-6">
+      <main id="main-content" tabIndex={-1} className="mx-auto mt-6 max-w-7xl space-y-6 px-4 sm:px-6 outline-none">
         {/* Interactive 4-Stop Pipeline Strip */}
         <section
           aria-label="Forwarding Pipeline Route"
@@ -746,7 +757,8 @@ export default function App() {
                 type="button"
                 disabled={running || status.isRunning || channels.length === 0}
                 onClick={handleRunNow}
-                className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-teal-600 px-5 py-4 font-display text-lg font-extrabold tracking-wider text-white hover:bg-teal-500 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 uppercase shadow-md shadow-teal-500/20 transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 disabled:shadow-none cursor-pointer"
+                aria-label="Trigger Gmail poll and forward matching emails to Discord now"
+                className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-lg bg-teal-600 px-5 py-4 font-display text-lg font-extrabold tracking-wider text-white hover:bg-teal-500 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 uppercase shadow-md shadow-teal-500/20 transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 disabled:shadow-none cursor-pointer"
               >
                 <Play className="h-5 w-5 fill-current" />
                 <span>{running || status.isRunning ? 'Running Poll…' : 'Run Poll Now'}</span>
@@ -819,7 +831,8 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handleCopy('npm run token:refresh && npm run deploy', 'cmd')}
-                            className="inline-flex items-center gap-1 rounded bg-teal-500/20 px-2 py-1 text-[11px] font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-500/30 cursor-pointer"
+                            aria-label="Copy token refresh and deploy command to clipboard"
+                            className="inline-flex min-h-[32px] items-center gap-1 rounded bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-500/30 cursor-pointer"
                           >
                             {copiedText === 'cmd' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                             <span>{copiedText === 'cmd' ? 'Copied' : 'Copy Command'}</span>
@@ -902,7 +915,8 @@ export default function App() {
                                     <button
                                       type="button"
                                       onClick={() => handleCopy(message.extractedCode, `code-${message.id}`)}
-                                      className="inline-flex items-center gap-1.5 rounded border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 font-mono-tabular text-xs font-bold text-teal-800 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
+                                      aria-label={`Copy verification code ${message.extractedCode} to clipboard`}
+                                      className="inline-flex min-h-[32px] items-center gap-1.5 rounded border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 font-mono-tabular text-xs font-bold text-teal-800 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
                                     >
                                       <KeyRound className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
                                       <span>CODE: {message.extractedCode}</span>
@@ -919,7 +933,8 @@ export default function App() {
                                       href={message.ctaUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 rounded border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300 hover:bg-rose-500/20 shadow-2xs"
+                                      aria-label={`${message.ctaLabel || 'Open Netflix Link'} (opens in a new tab)`}
+                                      className="inline-flex min-h-[32px] items-center gap-1.5 rounded border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300 hover:bg-rose-500/20 shadow-2xs"
                                     >
                                       <ExternalLink className="h-3.5 w-3.5" />
                                       <span>{message.ctaLabel || 'Open Netflix Link'}</span>
@@ -936,16 +951,20 @@ export default function App() {
                               target="_blank"
                               rel="noreferrer"
                               title="Open in Gmail"
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] shadow-2xs"
+                              aria-label={`Open email "${message.subject}" in Gmail`}
+                              className="inline-flex min-h-[36px] items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] shadow-2xs"
                             >
                               <Mail className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Gmail</span>
+                              <span className="inline">Gmail</span>
                             </a>
 
                             <button
                               type="button"
                               onClick={() => setExpandedSlotId(isExpanded ? null : message.id)}
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-2xs"
+                              aria-expanded={isExpanded}
+                              aria-controls={`slot-preview-${message.id}`}
+                              aria-label={`${isExpanded ? 'Hide' : 'Show'} Discord embed preview for email "${message.subject}"`}
+                              className="inline-flex min-h-[36px] items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-2xs"
                             >
                               <span>Preview</span>
                               {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -955,7 +974,12 @@ export default function App() {
 
                         {/* Expandable Discord Embed Preview */}
                         {isExpanded && (
-                          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)]/70 px-4 py-3.5">
+                          <div
+                            id={`slot-preview-${message.id}`}
+                            role="region"
+                            aria-label={`Discord embed preview for email: ${message.subject}`}
+                            className="border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)]/70 px-4 py-3.5"
+                          >
                             <div className="rounded-md border-l-4 border-rose-600 bg-[#2b2d31] p-3.5 text-slate-100 shadow-inner">
                               <div className="flex items-center justify-between text-xs text-slate-400">
                                 <span className="font-bold text-white">Netflix Forwarder</span>
@@ -1061,8 +1085,9 @@ export default function App() {
                               type="button"
                               disabled={isPinging || channelBusy}
                               onClick={() => handleTestWebhook(idx)}
+                              aria-label={`Send diagnostic test ping to Discord channel #${idx + 1}`}
                               title="Send diagnostic test ping embed to this Discord channel"
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-400 transition hover:border-teal-500/50 hover:bg-teal-500/10 disabled:opacity-50 cursor-pointer shadow-2xs"
+                              className="inline-flex min-h-[36px] items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-400 transition hover:border-teal-500/50 hover:bg-teal-500/10 disabled:opacity-50 cursor-pointer shadow-2xs"
                             >
                               <Send className="h-3 w-3" />
                               <span>{isPinging ? 'Pinging…' : 'Ping'}</span>
@@ -1073,7 +1098,9 @@ export default function App() {
                                 type="button"
                                 disabled={channelBusy}
                                 onClick={() => setConfirmRemoveIdx(isConfirming ? null : idx)}
-                                className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer shadow-2xs"
+                                aria-label={`Remove Discord channel #${idx + 1}`}
+                                title={`Remove Discord channel #${idx + 1}`}
+                                className="inline-flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-xs text-rose-700 dark:text-rose-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -1088,14 +1115,16 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveWebhook(idx)}
-                                className="rounded bg-rose-600 px-2.5 py-1 font-semibold text-white hover:bg-rose-500 cursor-pointer"
+                                aria-label={`Confirm removal of Discord channel #${idx + 1}`}
+                                className="min-h-[36px] rounded bg-rose-600 px-3 py-1.5 font-semibold text-white hover:bg-rose-500 cursor-pointer"
                               >
                                 Confirm Remove
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmRemoveIdx(null)}
-                                className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[var(--text-secondary)] cursor-pointer"
+                                aria-label={`Cancel removal of Discord channel #${idx + 1}`}
+                                className="min-h-[36px] rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-[var(--text-secondary)] cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -1109,7 +1138,12 @@ export default function App() {
               </div>
 
               {/* Add Channel Form */}
-              <form onSubmit={handleAddWebhook} className="mt-4 space-y-2.5 border-t border-dashed border-[var(--border-subtle)] pt-4">
+              <form
+                onSubmit={handleAddWebhook}
+                data-webmcp-tool="configure-discord-webhook"
+                data-webmcp-description="Add a new Discord webhook channel for forwarding Netflix notifications"
+                className="mt-4 space-y-2.5 border-t border-dashed border-[var(--border-subtle)] pt-4"
+              >
                 <label htmlFor="webhookUrlInput" className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                   Add Discord Webhook Endpoint
                 </label>
@@ -1117,18 +1151,20 @@ export default function App() {
                   <div className="relative flex-1">
                     <input
                       id="webhookUrlInput"
+                      name="webhookUrl"
+                      data-webmcp-field="webhookUrl"
                       type={showWebhookSecret ? 'text' : 'password'}
                       value={webhookInput}
                       disabled={channelBusy || channels.length >= MAX_CHANNELS}
                       onChange={(e) => setWebhookInput(e.target.value)}
                       placeholder="https://discord.com/api/webhooks/..."
-                      className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-sunken)] py-2 pr-9 pl-3 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none disabled:opacity-50"
+                      className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-sunken)] py-2 pr-12 pl-3 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none disabled:opacity-50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowWebhookSecret((s) => !s)}
-                      aria-label={showWebhookSecret ? 'Hide webhook URL' : 'Show webhook URL'}
-                      className="absolute top-1/2 right-2.5 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                      aria-label={showWebhookSecret ? 'Hide webhook URL secret' : 'Show webhook URL secret'}
+                      className="absolute inset-y-0 right-0 flex h-full w-10 min-w-[40px] items-center justify-center rounded-r-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer focus-visible:outline-2 focus-visible:outline-teal-500"
                     >
                       {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -1136,7 +1172,8 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={channelBusy || channels.length >= MAX_CHANNELS}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-xs"
+                    aria-label="Add Discord webhook channel"
+                    className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-xs"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add</span>
@@ -1207,7 +1244,8 @@ export default function App() {
                       type="button"
                       disabled={activePosts.length === 0 || deletingPosts}
                       onClick={() => setConfirmDeletePosts(true)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-700 dark:border-rose-500/40 dark:text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer shadow-2xs"
+                      aria-label="Delete sent Discord posts tracked in checkpoint"
+                      className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-700 dark:border-rose-500/40 dark:text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer shadow-2xs"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete {activePosts.length || ''} Sent Discord Post(s)</span>
@@ -1228,14 +1266,16 @@ export default function App() {
                         type="button"
                         disabled={deletingPosts}
                         onClick={handleDeleteSentMessages}
-                        className="rounded bg-rose-600 px-3 py-1.5 font-bold text-white hover:bg-rose-500 cursor-pointer"
+                        aria-label="Confirm deletion of tracked Discord posts"
+                        className="min-h-[36px] rounded bg-rose-600 px-3.5 py-1.5 font-bold text-white hover:bg-rose-500 cursor-pointer"
                       >
                         {deletingPosts ? 'Deleting…' : 'Yes, Delete From Discord'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDeletePosts(false)}
-                        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-[var(--text-secondary)] cursor-pointer"
+                        aria-label="Cancel deletion of tracked Discord posts"
+                        className="min-h-[36px] rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-[var(--text-secondary)] cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -1275,12 +1315,16 @@ export default function App() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="logSearchInput" className="sr-only">
+                Filter logs by subject or message ID
+              </label>
               <input
+                id="logSearchInput"
                 type="search"
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
                 placeholder="Filter logs by subject or ID…"
-                className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] px-2.5 py-1 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none"
+                className="min-h-[32px] rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] px-2.5 py-1 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none"
               />
               <div className="inline-flex rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-0.5 text-xs">
                 {['ALL', 'WARN', 'ERROR'].map((lvl) => (
@@ -1288,7 +1332,9 @@ export default function App() {
                     key={lvl}
                     type="button"
                     onClick={() => setLogFilter(lvl)}
-                    className={`rounded px-2.5 py-1 font-mono-tabular text-[11px] font-semibold transition cursor-pointer ${
+                    aria-label={`Filter activity logs: Show ${lvl.toLowerCase()} level`}
+                    aria-pressed={logFilter === lvl}
+                    className={`min-h-[32px] rounded px-3 py-1 font-mono-tabular text-[11px] font-semibold transition cursor-pointer ${
                       logFilter === lvl
                         ? 'bg-teal-600 text-white dark:bg-teal-500 dark:text-slate-950 shadow-xs'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
