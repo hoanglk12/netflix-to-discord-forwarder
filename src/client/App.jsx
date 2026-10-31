@@ -111,23 +111,23 @@ function parseLogEntry(rawLine, idx) {
 const CATEGORY_META = {
   household: {
     label: 'HOUSEHOLD ACCESS',
-    badgeClass: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+    badgeClass: 'bg-rose-500/10 text-rose-700 border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300',
   },
   verification: {
     label: 'OTP / CODE',
-    badgeClass: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+    badgeClass: 'bg-teal-500/10 text-teal-700 border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-300',
   },
   security: {
     label: 'SECURITY ALERT',
-    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    badgeClass: 'bg-amber-500/10 text-amber-800 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300',
   },
   billing: {
     label: 'BILLING',
-    badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+    badgeClass: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300',
   },
   general: {
     label: 'NETFLIX MAIL',
-    badgeClass: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+    badgeClass: 'bg-slate-500/10 text-slate-700 border-slate-500/30 dark:bg-slate-500/15 dark:text-slate-300',
   },
 };
 
@@ -531,11 +531,39 @@ export default function App() {
   }, [running, status.isRunning, lastRun, checkpoint, windowSlots, channels.length, windowSize, config]);
 
   const systemStatusPill = useMemo(() => {
-    if (fetchError) return { label: 'OFFLINE', dot: 'bg-rose-500', classes: 'bg-rose-500/15 text-rose-300 border-rose-500/30' };
-    if (running || status.isRunning) return { label: 'RUNNING POLL', dot: 'bg-teal-400 animate-ping', classes: 'bg-teal-500/15 text-teal-300 border-teal-500/30' };
-    if (effectiveOutcome.code === 'invalid_grant') return { label: 'GMAIL AUTH EXPIRED', dot: 'bg-rose-500', classes: 'bg-rose-500/15 text-rose-300 border-rose-500/30' };
-    if (channels.length === 0) return { label: 'NO WEBHOOKS', dot: 'bg-amber-400', classes: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
-    return { label: 'ONLINE • READY', dot: 'bg-emerald-400', classes: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+    if (fetchError) {
+      return {
+        label: 'OFFLINE',
+        dot: 'bg-rose-500',
+        classes: 'bg-rose-500/10 text-rose-700 border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300',
+      };
+    }
+    if (running || status.isRunning) {
+      return {
+        label: 'RUNNING POLL',
+        dot: 'bg-teal-500 dark:bg-teal-400 animate-ping',
+        classes: 'bg-teal-500/10 text-teal-800 border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-300',
+      };
+    }
+    if (effectiveOutcome.code === 'invalid_grant') {
+      return {
+        label: 'GMAIL AUTH EXPIRED',
+        dot: 'bg-rose-500',
+        classes: 'bg-rose-500/10 text-rose-700 border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300',
+      };
+    }
+    if (channels.length === 0) {
+      return {
+        label: 'NO WEBHOOKS',
+        dot: 'bg-amber-500 dark:bg-amber-400',
+        classes: 'bg-amber-500/10 text-amber-800 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300',
+      };
+    }
+    return {
+      label: 'ONLINE • READY',
+      dot: 'bg-emerald-500 dark:bg-emerald-400',
+      classes: 'bg-emerald-500/10 text-emerald-800 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300',
+    };
   }, [fetchError, running, status.isRunning, effectiveOutcome.code, channels.length]);
 
   return (
@@ -544,13 +572,13 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 shadow-inner">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-500 shadow-inner">
               <Radio className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-display text-xl font-extrabold tracking-wider uppercase sm:text-2xl">
-                  Netflix <span className="text-teal-400">→</span> Discord
+                <h1 className="font-display text-xl font-extrabold tracking-wider uppercase sm:text-2xl text-[var(--text-primary)]">
+                  Netflix <span className="text-teal-600 dark:text-teal-400">→</span> Discord
                 </h1>
                 <span className="hidden rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-mono-tabular text-[11px] font-semibold text-[var(--text-secondary)] sm:inline-block">
                   v2.0 TELEMETRY
@@ -564,11 +592,11 @@ export default function App() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Storage & Region Badge */}
-            <div className="hidden items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] md:flex">
-              <Database className="h-3.5 w-3.5 text-teal-400" />
+            <div className="hidden items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] md:flex shadow-xs">
+              <Database className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
               <span>{status.storageMode === 'upstash-redis' ? 'UPSTASH REDIS' : 'LOCAL STORE'}</span>
               <span className="text-[var(--text-muted)]">•</span>
-              <span className="text-teal-400 uppercase">{status.region || 'sin1'}</span>
+              <span className="text-teal-700 dark:text-teal-400 font-bold uppercase">{status.region || 'sin1'}</span>
             </div>
 
             {/* System Status Pill */}
@@ -582,9 +610,9 @@ export default function App() {
               type="button"
               onClick={() => setAutoPoll((v) => !v)}
               title={autoPoll ? 'Auto-sync active (10s). Click to pause.' : 'Auto-sync paused. Click to resume.'}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 font-mono-tabular text-xs text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
             >
-              {autoPoll ? <RefreshCw className="h-3.5 w-3.5 text-teal-400" /> : <Pause className="h-3.5 w-3.5 text-amber-400" />}
+              {autoPoll ? <RefreshCw className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" /> : <Pause className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
               <span className="hidden sm:inline">{autoPoll ? '10s Sync' : 'Paused'}</span>
             </button>
 
@@ -592,7 +620,7 @@ export default function App() {
             <button
               type="button"
               onClick={fetchSnapshot}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--border-strong)] cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--border-strong)] cursor-pointer shadow-xs"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Sync</span>
@@ -603,7 +631,7 @@ export default function App() {
               type="button"
               onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
               aria-label="Toggle color theme"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-xs"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -627,17 +655,17 @@ export default function App() {
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-center">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-9 lg:grid-cols-4">
               {/* Stop 1: Source */}
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5">
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
                     01 // Source
                   </span>
-                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono-tabular text-[10px] font-semibold text-emerald-400">
+                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
                     GMAIL API v1
                   </span>
                 </div>
-                <p className="mt-1 font-display text-base font-bold">Gmail Inbox</p>
-                <code className="mt-1 block truncate font-mono-tabular text-xs text-teal-400">
+                <p className="mt-1 font-display text-base font-bold text-[var(--text-primary)]">Gmail Inbox</p>
+                <code className="mt-1 block truncate font-mono-tabular text-xs font-semibold text-teal-700 dark:text-teal-400">
                   {config.gmailQuery || 'in:inbox newer_than:1d'}
                 </code>
                 <p className="mt-1.5 font-mono-tabular text-[11px] text-[var(--text-muted)]">
@@ -646,17 +674,17 @@ export default function App() {
               </div>
 
               {/* Stop 2: Filter & Smart Parser */}
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5">
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
                     02 // Smart Parser
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 font-mono-tabular text-[10px] font-semibold text-rose-400">
+                  <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-rose-700 dark:bg-rose-500/15 dark:text-rose-400">
                     <Sparkles className="h-2.5 w-2.5" /> OTP + CTA
                   </span>
                 </div>
-                <p className="mt-1 font-display text-base font-bold">Sender Filter</p>
-                <code className="mt-1 block truncate font-mono-tabular text-xs text-rose-400">
+                <p className="mt-1 font-display text-base font-bold text-[var(--text-primary)]">Sender Filter</p>
+                <code className="mt-1 block truncate font-mono-tabular text-xs font-semibold text-rose-700 dark:text-rose-400">
                   @{config.gmailSenderFilter || 'netflix.com'}
                 </code>
                 <p className="mt-1.5 font-mono-tabular text-[11px] text-[var(--text-muted)]">
@@ -665,23 +693,23 @@ export default function App() {
               </div>
 
               {/* Stop 3: 5-Email Window */}
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5">
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
                     03 // Dedup Window
                   </span>
-                  <span className="font-mono-tabular text-[11px] font-semibold text-teal-400">
+                  <span className="font-mono-tabular text-[11px] font-bold text-teal-700 dark:text-teal-400">
                     {windowSlots.filter((s) => s.message).length}/{windowSize} SLOTS
                   </span>
                 </div>
-                <p className="mt-1 font-display text-base font-bold">Latest {windowSize} Emails</p>
+                <p className="mt-1 font-display text-base font-bold text-[var(--text-primary)]">Latest {windowSize} Emails</p>
                 <div className="mt-2 flex gap-1.5" aria-hidden="true">
                   {windowSlots.map((slot) => (
                     <span
                       key={slot.slotNumber}
                       className={`h-2.5 flex-1 rounded-xs border ${
                         slot.message
-                          ? 'border-teal-400 bg-teal-400/80'
+                          ? 'border-teal-600 bg-teal-600 dark:border-teal-400 dark:bg-teal-400/80'
                           : 'border-[var(--border-strong)] bg-transparent'
                       }`}
                     />
@@ -693,17 +721,17 @@ export default function App() {
               </div>
 
               {/* Stop 4: Discord Fan-Out */}
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5">
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
                     04 // Deliver
                   </span>
-                  <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 font-mono-tabular text-[10px] font-semibold text-indigo-400">
+                  <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
                     WEBHOOKS
                   </span>
                 </div>
-                <p className="mt-1 font-display text-base font-bold">Discord Channels</p>
-                <p className="mt-1 font-mono-tabular text-xs font-semibold text-indigo-400">
+                <p className="mt-1 font-display text-base font-bold text-[var(--text-primary)]">Discord Channels</p>
+                <p className="mt-1 font-mono-tabular text-xs font-bold text-indigo-700 dark:text-indigo-400">
                   {channels.length} / {MAX_CHANNELS} Active Endpoints
                 </p>
                 <p className="mt-1.5 font-mono-tabular text-[11px] text-[var(--text-muted)]">
@@ -718,7 +746,7 @@ export default function App() {
                 type="button"
                 disabled={running || status.isRunning || channels.length === 0}
                 onClick={handleRunNow}
-                className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-teal-500 px-5 py-4 font-display text-lg font-extrabold tracking-wider text-slate-950 uppercase shadow-md shadow-teal-500/20 transition hover:bg-teal-400 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none cursor-pointer"
+                className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-teal-600 px-5 py-4 font-display text-lg font-extrabold tracking-wider text-white hover:bg-teal-500 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 uppercase shadow-md shadow-teal-500/20 transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 disabled:shadow-none cursor-pointer"
               >
                 <Play className="h-5 w-5 fill-current" />
                 <span>{running || status.isRunning ? 'Running Poll…' : 'Run Poll Now'}</span>
@@ -739,7 +767,7 @@ export default function App() {
             <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] pb-3.5">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-display text-base font-bold tracking-wider uppercase">
+                  <h2 className="font-display text-base font-bold tracking-wider uppercase text-[var(--text-primary)]">
                     Last Run Telemetry
                   </h2>
                   {effectiveOutcome.at && (
@@ -756,22 +784,22 @@ export default function App() {
               <div
                 className={`mt-4 rounded-lg border p-4 ${
                   effectiveOutcome.tone === 'emerald'
-                    ? 'border-emerald-500/30 bg-emerald-500/10'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100'
                     : effectiveOutcome.tone === 'amber'
-                    ? 'border-amber-500/30 bg-amber-500/10'
+                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100'
                     : effectiveOutcome.tone === 'rose'
-                    ? 'border-rose-500/30 bg-rose-500/10'
+                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-100'
                     : effectiveOutcome.tone === 'teal'
-                    ? 'border-teal-500/30 bg-teal-500/10'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-sunken)]'
+                    ? 'border-teal-500/30 bg-teal-500/10 text-teal-950 dark:text-teal-100'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-sunken)] text-[var(--text-primary)]'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {effectiveOutcome.tone === 'emerald' && <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />}
-                  {effectiveOutcome.tone === 'amber' && <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />}
-                  {effectiveOutcome.tone === 'rose' && <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />}
+                  {effectiveOutcome.tone === 'emerald' && <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                  {effectiveOutcome.tone === 'amber' && <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />}
+                  {effectiveOutcome.tone === 'rose' && <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />}
                   {(effectiveOutcome.tone === 'teal' || effectiveOutcome.tone === 'slate') && (
-                    <Radio className="mt-0.5 h-5 w-5 shrink-0 text-teal-400" />
+                    <Radio className="mt-0.5 h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
                   )}
                   <div className="min-w-0 flex-1">
                     <h3 className="font-display text-lg font-bold leading-snug">
@@ -782,16 +810,16 @@ export default function App() {
                     </p>
 
                     {effectiveOutcome.code === 'invalid_grant' && (
-                      <div className="mt-3 rounded-md border border-rose-500/30 bg-slate-950/60 p-3 text-xs">
-                        <p className="font-semibold text-rose-300">
+                      <div className="mt-3 rounded-md border border-rose-500/30 bg-rose-50/90 dark:bg-slate-950/60 p-3 text-xs shadow-xs">
+                        <p className="font-bold text-rose-800 dark:text-rose-300">
                           Quick Fix — Refresh & Upload Gmail OAuth Token:
                         </p>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 font-mono-tabular">
-                          <code className="text-teal-300">npm run token:refresh && npm run deploy</code>
+                          <code className="text-teal-700 dark:text-teal-300 font-semibold">npm run token:refresh && npm run deploy</code>
                           <button
                             type="button"
                             onClick={() => handleCopy('npm run token:refresh && npm run deploy', 'cmd')}
-                            className="inline-flex items-center gap-1 rounded bg-teal-500/20 px-2 py-1 text-[11px] font-semibold text-teal-300 hover:bg-teal-500/30 cursor-pointer"
+                            className="inline-flex items-center gap-1 rounded bg-teal-500/20 px-2 py-1 text-[11px] font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-500/30 cursor-pointer"
                           >
                             {copiedText === 'cmd' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                             <span>{copiedText === 'cmd' ? 'Copied' : 'Copy Command'}</span>
@@ -807,7 +835,7 @@ export default function App() {
               <div className="mt-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-display text-sm font-bold tracking-wider uppercase">
+                    <h3 className="font-display text-sm font-bold tracking-wider uppercase text-[var(--text-primary)]">
                       5-Slot Deduplication Window Inspector
                     </h3>
                     <p className="text-xs text-[var(--text-secondary)]">
@@ -828,10 +856,10 @@ export default function App() {
                           className="flex items-center justify-between px-4 py-3 text-xs text-[var(--text-muted)]"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="font-mono-tabular font-semibold">0{slotNumber}</span>
+                            <span className="font-mono-tabular font-bold text-[var(--text-secondary)]">0{slotNumber}</span>
                             <span>Empty window slot — waiting for matching Netflix email</span>
                           </div>
-                          <span className="rounded border border-[var(--border-subtle)] px-2 py-0.5 font-mono-tabular text-[10px] uppercase">
+                          <span className="rounded border border-[var(--border-subtle)] px-2 py-0.5 font-mono-tabular text-[10px] uppercase text-[var(--text-muted)]">
                             VACANT
                           </span>
                         </div>
@@ -845,7 +873,7 @@ export default function App() {
                       <div key={message.id || slotNumber} className="transition hover:bg-[var(--bg-elevated)]/50">
                         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5">
                           <div className="flex min-w-0 flex-1 items-start gap-3">
-                            <span className="mt-0.5 rounded bg-[var(--bg-surface)] px-1.5 py-0.5 font-mono-tabular text-xs font-bold text-teal-400 border border-[var(--border-subtle)]">
+                            <span className="mt-0.5 rounded bg-[var(--bg-surface)] px-1.5 py-0.5 font-mono-tabular text-xs font-bold text-teal-700 dark:text-teal-400 border border-[var(--border-subtle)]">
                               0{slotNumber}
                             </span>
                             <div className="min-w-0 flex-1">
@@ -874,12 +902,12 @@ export default function App() {
                                     <button
                                       type="button"
                                       onClick={() => handleCopy(message.extractedCode, `code-${message.id}`)}
-                                      className="inline-flex items-center gap-1.5 rounded border border-teal-500/40 bg-teal-500/15 px-2.5 py-1 font-mono-tabular text-xs font-bold text-teal-300 hover:bg-teal-500/25 cursor-pointer"
+                                      className="inline-flex items-center gap-1.5 rounded border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 font-mono-tabular text-xs font-bold text-teal-800 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
                                     >
-                                      <KeyRound className="h-3.5 w-3.5" />
+                                      <KeyRound className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
                                       <span>CODE: {message.extractedCode}</span>
                                       {copiedText === `code-${message.id}` ? (
-                                        <Check className="h-3 w-3 text-emerald-400" />
+                                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                                       ) : (
                                         <Copy className="h-3 w-3 opacity-75" />
                                       )}
@@ -891,7 +919,7 @@ export default function App() {
                                       href={message.ctaUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 rounded border border-rose-500/40 bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/25"
+                                      className="inline-flex items-center gap-1.5 rounded border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300 hover:bg-rose-500/20 shadow-2xs"
                                     >
                                       <ExternalLink className="h-3.5 w-3.5" />
                                       <span>{message.ctaLabel || 'Open Netflix Link'}</span>
@@ -908,7 +936,7 @@ export default function App() {
                               target="_blank"
                               rel="noreferrer"
                               title="Open in Gmail"
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] shadow-2xs"
                             >
                               <Mail className="h-3.5 w-3.5" />
                               <span className="hidden sm:inline">Gmail</span>
@@ -917,7 +945,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => setExpandedSlotId(isExpanded ? null : message.id)}
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer"
+                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer shadow-2xs"
                             >
                               <span>Preview</span>
                               {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -968,7 +996,7 @@ export default function App() {
             <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-lg">
               <div className="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] pb-3.5">
                 <div>
-                  <h2 className="font-display text-base font-bold tracking-wider uppercase">
+                  <h2 className="font-display text-base font-bold tracking-wider uppercase text-[var(--text-primary)]">
                     Discord Webhook Channels
                   </h2>
                   <p className="text-xs text-[var(--text-secondary)]">
@@ -982,7 +1010,7 @@ export default function App() {
                         key={idx}
                         className={`h-2.5 w-3.5 rounded-xs border ${
                           idx < channels.length
-                            ? 'border-indigo-400 bg-indigo-500'
+                            ? 'border-indigo-600 bg-indigo-600 dark:border-indigo-400 dark:bg-indigo-500'
                             : 'border-[var(--border-strong)] bg-transparent'
                         }`}
                       />
@@ -1011,13 +1039,13 @@ export default function App() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 font-mono-tabular text-xs font-bold text-indigo-400">
+                              <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 font-mono-tabular text-xs font-bold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400">
                                 #{idx + 1}
                               </span>
                               <code className="truncate font-mono-tabular text-xs text-[var(--text-primary)]">
                                 {chan.host}
                                 <span className="text-[var(--text-muted)]">/webhooks/</span>
-                                <span className="text-teal-400">{chan.id}</span>
+                                <span className="text-teal-700 dark:text-teal-400 font-semibold">{chan.id}</span>
                                 <span className="text-[var(--text-muted)]">/••••</span>
                               </code>
                             </div>
@@ -1034,7 +1062,7 @@ export default function App() {
                               disabled={isPinging || channelBusy}
                               onClick={() => handleTestWebhook(idx)}
                               title="Send diagnostic test ping embed to this Discord channel"
-                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-teal-400 transition hover:border-teal-500/50 hover:bg-teal-500/10 disabled:opacity-50 cursor-pointer"
+                              className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-400 transition hover:border-teal-500/50 hover:bg-teal-500/10 disabled:opacity-50 cursor-pointer shadow-2xs"
                             >
                               <Send className="h-3 w-3" />
                               <span>{isPinging ? 'Pinging…' : 'Ping'}</span>
@@ -1045,7 +1073,7 @@ export default function App() {
                                 type="button"
                                 disabled={channelBusy}
                                 onClick={() => setConfirmRemoveIdx(isConfirming ? null : idx)}
-                                className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-rose-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer"
+                                className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -1054,8 +1082,8 @@ export default function App() {
                         </div>
 
                         {isConfirming && (
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs">
-                            <span className="text-rose-200">Remove Channel #{idx + 1} (ID {chan.id})?</span>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded border border-rose-500/30 bg-rose-50/90 dark:bg-rose-500/10 px-3 py-2 text-xs">
+                            <span className="text-rose-900 dark:text-rose-200 font-medium">Remove Channel #{idx + 1} (ID {chan.id})?</span>
                             <div className="flex gap-2">
                               <button
                                 type="button"
@@ -1094,7 +1122,7 @@ export default function App() {
                       disabled={channelBusy || channels.length >= MAX_CHANNELS}
                       onChange={(e) => setWebhookInput(e.target.value)}
                       placeholder="https://discord.com/api/webhooks/..."
-                      className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-sunken)] py-2 pr-9 pl-3 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-400 focus:outline-none disabled:opacity-50"
+                      className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-sunken)] py-2 pr-9 pl-3 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none disabled:opacity-50"
                     />
                     <button
                       type="button"
@@ -1108,7 +1136,7 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={channelBusy || channels.length >= MAX_CHANNELS}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-xs"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add</span>
@@ -1117,14 +1145,14 @@ export default function App() {
                 {channelFeedback && (
                   <p
                     className={`text-xs font-semibold ${
-                      channelFeedback.tone === 'ok' ? 'text-emerald-400' : 'text-rose-400'
+                      channelFeedback.tone === 'ok' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
                     }`}
                   >
                     {channelFeedback.text}
                   </p>
                 )}
                 <p className="text-[11px] text-[var(--text-muted)]">
-                  Persisted to Upstash Redis (<code className="text-teal-400">upstash-kv-violet-village</code>) on Vercel or <code className="text-teal-400">.env</code> locally.
+                  Persisted to Upstash Redis (<code className="text-teal-700 dark:text-teal-400 font-semibold">upstash-kv-violet-village</code>) on Vercel or <code className="text-teal-700 dark:text-teal-400 font-semibold">.env</code> locally.
                 </p>
               </form>
             </section>
@@ -1132,7 +1160,7 @@ export default function App() {
             {/* Checkpoint & Active Discord Post Cleanup */}
             <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-lg">
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3.5">
-                <h2 className="font-display text-base font-bold tracking-wider uppercase">
+                <h2 className="font-display text-base font-bold tracking-wider uppercase text-[var(--text-primary)]">
                   Checkpoint State
                 </h2>
                 <span className="font-mono-tabular text-xs text-[var(--text-muted)]">
@@ -1143,7 +1171,7 @@ export default function App() {
               <dl className="mt-4 grid grid-cols-2 gap-3.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-3.5">
                 <div>
                   <dt className="text-xs text-[var(--text-muted)]">Last Poll Run</dt>
-                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold">
+                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-[var(--text-primary)]">
                     {checkpoint.lastOnceRunAt
                       ? formatAgo(new Date(checkpoint.lastOnceRunAt).getTime())
                       : 'Never'}
@@ -1151,7 +1179,7 @@ export default function App() {
                 </div>
                 <div>
                   <dt className="text-xs text-[var(--text-muted)]">Last Post Sent</dt>
-                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold">
+                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-[var(--text-primary)]">
                     {checkpoint.lastSuccessAt
                       ? formatAgo(new Date(checkpoint.lastSuccessAt).getTime())
                       : '—'}
@@ -1159,13 +1187,13 @@ export default function App() {
                 </div>
                 <div>
                   <dt className="text-xs text-[var(--text-muted)]">Window Emails Saved</dt>
-                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-teal-400">
+                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-teal-700 dark:text-teal-400">
                     {(checkpoint.lastOnceLatestIds || []).length} / {windowSize}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-[var(--text-muted)]">Live Discord Posts</dt>
-                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-indigo-400">
+                  <dd className="mt-0.5 font-mono-tabular text-sm font-bold text-indigo-700 dark:text-indigo-400">
                     {activePosts.length} message(s)
                   </dd>
                 </div>
@@ -1179,7 +1207,7 @@ export default function App() {
                       type="button"
                       disabled={activePosts.length === 0 || deletingPosts}
                       onClick={() => setConfirmDeletePosts(true)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-700 dark:border-rose-500/40 dark:text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer shadow-2xs"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete {activePosts.length || ''} Sent Discord Post(s)</span>
@@ -1191,8 +1219,8 @@ export default function App() {
                     </span>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-xs">
-                    <p className="font-semibold text-rose-200">
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-50/90 dark:bg-rose-500/10 p-3 text-xs">
+                    <p className="font-semibold text-rose-900 dark:text-rose-200">
                       Delete {activePosts.length} forwarded message(s) from your Discord channel(s) right now?
                     </p>
                     <div className="mt-2.5 flex gap-2">
@@ -1219,10 +1247,10 @@ export default function App() {
                   <p
                     className={`mt-2 text-xs font-semibold ${
                       deleteFeedback.tone === 'ok'
-                        ? 'text-emerald-400'
+                        ? 'text-emerald-700 dark:text-emerald-400'
                         : deleteFeedback.tone === 'warn'
-                        ? 'text-amber-400'
-                        : 'text-rose-400'
+                        ? 'text-amber-800 dark:text-amber-400'
+                        : 'text-rose-700 dark:text-rose-400'
                     }`}
                   >
                     {deleteFeedback.text}
@@ -1237,8 +1265,8 @@ export default function App() {
         <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3.5">
             <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-teal-400" />
-              <h2 className="font-display text-base font-bold tracking-wider uppercase">
+              <Terminal className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              <h2 className="font-display text-base font-bold tracking-wider uppercase text-[var(--text-primary)]">
                 Activity & Telemetry Log Stream
               </h2>
               <span className="rounded border border-[var(--border-subtle)] bg-[var(--bg-sunken)] px-2 py-0.5 font-mono-tabular text-xs text-[var(--text-muted)]">
@@ -1252,7 +1280,7 @@ export default function App() {
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
                 placeholder="Filter logs by subject or ID…"
-                className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] px-2.5 py-1 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-400 focus:outline-none"
+                className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] px-2.5 py-1 font-mono-tabular text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-teal-500 focus:outline-none"
               />
               <div className="inline-flex rounded-md border border-[var(--border-subtle)] bg-[var(--bg-sunken)] p-0.5 text-xs">
                 {['ALL', 'WARN', 'ERROR'].map((lvl) => (
@@ -1262,7 +1290,7 @@ export default function App() {
                     onClick={() => setLogFilter(lvl)}
                     className={`rounded px-2.5 py-1 font-mono-tabular text-[11px] font-semibold transition cursor-pointer ${
                       logFilter === lvl
-                        ? 'bg-teal-500 text-slate-950'
+                        ? 'bg-teal-600 text-white dark:bg-teal-500 dark:text-slate-950 shadow-xs'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -1291,10 +1319,10 @@ export default function App() {
                     <span
                       className={`inline-block rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold ${
                         entry.level === 'ERROR'
-                          ? 'bg-rose-500/20 text-rose-300'
+                          ? 'bg-rose-500/15 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
                           : entry.level === 'WARN'
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-teal-500/15 text-teal-300'
+                          ? 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                          : 'bg-teal-500/10 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300'
                       }`}
                     >
                       {entry.level}
@@ -1307,7 +1335,7 @@ export default function App() {
                         {Object.entries(entry.details).map(([k, v]) => (
                           <span key={k}>
                             <span className="text-[var(--text-muted)]">{k}=</span>
-                            <span className="text-teal-300">
+                            <span className="text-teal-700 dark:text-teal-300 font-semibold">
                               {typeof v === 'string' ? v : JSON.stringify(v)}
                             </span>
                           </span>

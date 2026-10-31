@@ -8,4 +8,5 @@ coverage/
 secrets/
 registration_output.txt
 .vercel
+.playwright-mcp/
 .claude/settings.local.json
