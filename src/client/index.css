@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #0b0f14;
+  --bg-surface: #111820;
+  --bg-sunken: #0d131a;
+  --bg-elevated: #17212c;
+  --border-subtle: #1f2b37;
+  --border-strong: #324456;
+  --text-primary: #e8eef4;
+  --text-secondary: #9fb0c2;
+  --text-muted: #6c7f93;
+  --accent-signal: #14b8a6;
+  --accent-crimson: #e50914;
+  --accent-blurple: #5865f2;
+  --font-display: "Archivo", "Arial Narrow", sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+html.light {
+  --bg-canvas: #eceff3;
+  --bg-surface: #ffffff;
+  --bg-sunken: #f3f6f9;
+  --bg-elevated: #f8fafc;
+  --border-subtle: #d5dde6;
+  --border-strong: #9fb0c2;
+  --text-primary: #0f1722;
+  --text-secondary: #3e4c5e;
+  --text-muted: #64748b;
+  --accent-signal: #0d9488;
+  --accent-crimson: #d80812;
+  --accent-blurple: #4f46e5;
+}
+
+body {
+  background-color: var(--bg-canvas);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(229, 9, 20, 0.07), transparent 36%),
+    radial-gradient(circle at 88% 0%, rgba(20, 184, 166, 0.08), transparent 40%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes routePulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.animate-route-flow {
+  background: linear-gradient(90deg, var(--border-strong) 0%, var(--accent-signal) 50%, var(--border-strong) 100%);
+  background-size: 200% 100%;
+  animation: routePulse 1.5s linear infinite;
+}

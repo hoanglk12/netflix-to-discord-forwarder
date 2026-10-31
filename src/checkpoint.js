@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const CHECKPOINT_REDIS_KEY = 'netflix-forwarder:checkpoint-state';
+export const CHECKPOINT_REDIS_KEY = 'netflix-forwarder:checkpoint-state';
 const CHECKPOINT_CACHE_TTL_MS = 10000;
 
 let inMemoryCheckpoint = null;
@@ -18,7 +18,7 @@ function formatTimestamp(date = new Date()) {
   return date.toISOString();
 }
 
-function createEmptyState(dayKey) {
+export function createEmptyState(dayKey = getLocalDayKey()) {
   return {
     version: 2,
     day: dayKey,
@@ -28,10 +28,28 @@ function createEmptyState(dayKey) {
     lastOnceRunAt: null,
     lastSuccessAt: null,
     lastSentDiscordMessages: [],
+    windowMessages: [],
+    lastOutcome: null,
   };
 }
 
-function normalizeState(raw, maxIds, dayKey) {
+function sanitizeWindowMessage(item) {
+  if (!item || typeof item !== 'object' || !item.id) return null;
+  return {
+    id: String(item.id),
+    subject: String(item.subject || '(no subject)'),
+    from: String(item.from || '(unknown sender)'),
+    internalDate: Number.isFinite(Number(item.internalDate)) ? Number(item.internalDate) : null,
+    snippet: String(item.snippet || '').slice(0, 300),
+    category: String(item.category || 'general'),
+    extractedCode: item.extractedCode ? String(item.extractedCode) : null,
+    ctaUrl: item.ctaUrl ? String(item.ctaUrl) : null,
+    ctaLabel: item.ctaLabel ? String(item.ctaLabel) : null,
+    permalink: item.permalink ? String(item.permalink) : `https://mail.google.com/mail/u/0/#inbox/${item.id}`,
+  };
+}
+
+export function normalizeState(raw, maxIds = 250, dayKey = getLocalDayKey()) {
   if (raw?.version !== 2) {
     return createEmptyState(dayKey);
   }
@@ -45,6 +63,10 @@ function normalizeState(raw, maxIds, dayKey) {
     lastOnceRunAt: raw.lastOnceRunAt || null,
     lastSuccessAt: raw.lastSuccessAt || null,
     lastSentDiscordMessages: Array.isArray(raw.lastSentDiscordMessages) ? raw.lastSentDiscordMessages : [],
+    windowMessages: Array.isArray(raw.windowMessages)
+      ? raw.windowMessages.map(sanitizeWindowMessage).filter(Boolean)
+      : [],
+    lastOutcome: ['posted', 'skipped', 'nothing'].includes(raw.lastOutcome) ? raw.lastOutcome : null,
   };
 
   if (normalized.day !== dayKey) {
@@ -52,7 +74,10 @@ function normalizeState(raw, maxIds, dayKey) {
       ...createEmptyState(dayKey),
       lastOnceLatestIds: [...new Set(normalized.lastOnceLatestIds)].slice(-maxIds),
       lastOnceRunAt: normalized.lastOnceRunAt,
+      lastSuccessAt: normalized.lastSuccessAt,
       lastSentDiscordMessages: normalized.lastSentDiscordMessages,
+      windowMessages: normalized.windowMessages,
+      lastOutcome: normalized.lastOutcome,
     };
   }
 
@@ -62,10 +87,7 @@ function normalizeState(raw, maxIds, dayKey) {
   return normalized;
 }
 
-// The Vercel<->Upstash connection sometimes provisions the older "Vercel KV"
-// env var names (KV_REST_API_URL/TOKEN) instead of UPSTASH_REDIS_REST_URL/TOKEN,
-// depending on how the integration was added. Accept either.
-function getRedisCredentials() {
+export function getRedisCredentials() {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   return url && token ? { url, token } : null;
@@ -94,21 +116,19 @@ async function saveRedisCheckpoint(state) {
     const redis = new Redis(credentials);
     await redis.set(CHECKPOINT_REDIS_KEY, state);
   } catch (error) {
-    // Best-effort: keep the in-memory copy even if the Redis write fails.
     console.error('Failed to save checkpoint to Redis', error);
   }
+}
+
+export function setCheckpointCache(rawState) {
+  inMemoryCheckpoint = rawState;
+  inMemoryCheckpointAt = Date.now();
 }
 
 export async function loadCheckpoint(filePath, maxIds) {
   const dayKey = getLocalDayKey();
 
   if (process.env.VERCEL) {
-    // Vercel keeps multiple warm instances alive behind one domain (e.g. the
-    // dashboard's 5s poll loop). A "hydrate once, cache forever" strategy
-    // would let an instance serve a permanently stale snapshot whenever a
-    // *different* instance is the one that writes (e.g. /api/run). Use a
-    // short TTL instead: fresh enough to see cross-instance writes quickly,
-    // long enough to avoid a Redis round trip on every single poll.
     const isStale = !inMemoryCheckpoint || Date.now() - inMemoryCheckpointAt >= CHECKPOINT_CACHE_TTL_MS;
     if (isStale) {
       const redisState = await loadRedisCheckpoint();
@@ -170,10 +190,6 @@ function extractWebhookId(webhookUrl) {
   }
 }
 
-// The checkpoint stores full webhook URLs (needed to delete earlier posts), and
-// the token segment of a webhook URL lets anyone post to that channel. API
-// responses get this view instead. Entries are rebuilt from an allowlist rather
-// than edited in place: on Vercel `state` is the live in-memory cache.
 export function toPublicCheckpoint(state, webhookUrls = []) {
   if (!state || typeof state !== 'object' || !('lastSentDiscordMessages' in state)) {
     return state;
@@ -193,18 +209,33 @@ export function toPublicCheckpoint(state, webhookUrls = []) {
   };
 }
 
-export function buildCheckpointForOnceRun(currentState, latestIds, maxIds, discordMessages = []) {
+export function buildCheckpointForOnceRun(
+  currentState,
+  latestIds,
+  maxIds,
+  discordMessages = [],
+  options = {},
+) {
   const dayKey = getLocalDayKey();
   const baseState = currentState.day === dayKey ? currentState : createEmptyState(dayKey);
+  const windowMessages = Array.isArray(options.windowMessages)
+    ? options.windowMessages.map(sanitizeWindowMessage).filter(Boolean)
+    : (baseState.windowMessages || []);
+  const deliveredIds = Array.isArray(options.deliveredIds) ? options.deliveredIds : [];
+  const mergedSentIds = [...new Set([...(baseState.sentIds || []), ...deliveredIds])].slice(-maxIds);
+  const outcome = options.outcome || baseState.lastOutcome || null;
+  const nowIso = formatTimestamp();
 
   return {
     version: 2,
     day: baseState.day,
-    sentCount: baseState.sentCount,
-    sentIds: baseState.sentIds,
+    sentCount: mergedSentIds.length || baseState.sentCount,
+    sentIds: mergedSentIds,
     lastOnceLatestIds: [...new Set(latestIds)].slice(-maxIds),
-    lastOnceRunAt: formatTimestamp(),
-    lastSuccessAt: baseState.lastSuccessAt,
+    lastOnceRunAt: nowIso,
+    lastSuccessAt: deliveredIds.length > 0 ? nowIso : baseState.lastSuccessAt,
     lastSentDiscordMessages: discordMessages,
+    windowMessages,
+    lastOutcome: outcome,
   };
 }

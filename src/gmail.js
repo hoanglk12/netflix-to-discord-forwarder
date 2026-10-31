@@ -1,7 +1,5 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { authenticate } from '@google-cloud/local-auth';
-import { google } from 'googleapis';
 import { normalizeGmailMessage } from './gmail-message.js';
 import { withRetry } from './utils.js';
 
@@ -86,7 +84,8 @@ async function saveToken(tokenPath, client) {
   await fs.writeFile(tokenPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
-function buildOAuth2Client(savedToken) {
+async function buildOAuth2Client(savedToken) {
+  const { google } = await import('googleapis');
   const oauth2 = new google.auth.OAuth2(savedToken.client_id, savedToken.client_secret);
   oauth2.setCredentials({
     refresh_token: savedToken.refresh_token,
@@ -110,6 +109,7 @@ async function createOAuthClient(config, allowInteractive) {
     throw new Error('Interactive auth requires GMAIL_OAUTH_CREDENTIALS_PATH.');
   }
 
+  const { authenticate } = await import('@google-cloud/local-auth');
   const client = await authenticate({
     scopes: SCOPES,
     keyfilePath: config.gmailCredentialsPath,
@@ -129,7 +129,10 @@ function isRetriableGoogleError(error) {
 }
 
 export async function authorizeGmail(config, options = {}) {
-  const auth = await createOAuthClient(config, options.allowInteractive ?? false);
+  const [{ google }, auth] = await Promise.all([
+    import('googleapis'),
+    createOAuthClient(config, options.allowInteractive ?? false),
+  ]);
   return google.gmail({ version: 'v1', auth });
 }
 

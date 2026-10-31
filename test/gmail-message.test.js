@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractMessageBody, normalizeGmailMessage } from '../src/gmail-message.js';
+import { extractMessageBody, extractNetflixInsights, normalizeGmailMessage } from '../src/gmail-message.js';
 
 function encode(value) {
   return Buffer.from(value, 'utf8').toString('base64url');
@@ -63,4 +63,18 @@ test('normalizes Gmail message metadata and body', () => {
   assert.equal(normalized.from, 'Netflix <info@mailer.netflix.com>');
   assert.equal(normalized.body, 'Your Netflix plan changed');
   assert.equal(normalized.permalink, 'https://mail.google.com/mail/u/0/#inbox/abc123');
+  assert.equal(normalized.category, 'billing');
+});
+
+test('extracts Netflix household confirmation CTA link and access code from HTML email', () => {
+  const insights = extractNetflixInsights({
+    subject: 'Your Netflix temporary access code',
+    body: 'Enter this verification code: 482910 to watch on your TV.',
+    html: '<p>Requested by TV</p><a href="https://www.netflix.com/account/travel/verify?token=abc">Get Code</a>',
+  });
+
+  assert.equal(insights.category, 'household');
+  assert.equal(insights.extractedCode, '482910');
+  assert.equal(insights.ctaUrl, 'https://www.netflix.com/account/travel/verify?token=abc');
+  assert.equal(insights.ctaLabel, 'Get Code');
 });

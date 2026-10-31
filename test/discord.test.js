@@ -37,3 +37,16 @@ test('sanitizes mentions and enforces preview limits', () => {
   assert.equal(preview.includes('@everyone'), false);
   assert.equal(preview.length <= 1000, true);
 });
+
+test('includes extracted verification code and direct CTA action fields when present', () => {
+  const payload = buildDiscordPayload(sampleMessage({
+    category: 'household',
+    extractedCode: '739201',
+    ctaUrl: 'https://www.netflix.com/account/travel/verify?nftoken=xyz',
+    ctaLabel: 'Yes, This Was Me',
+  }));
+
+  const fieldNames = payload.embeds[0].fields.map((f) => f.name);
+  assert.equal(fieldNames.includes('Verification / Access Code'), true);
+  assert.equal(fieldNames.includes('Direct Action Link'), true);
+});

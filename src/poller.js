@@ -77,6 +77,9 @@ async function sendMessages(messages, config, logger) {
     await logger.info('Forwarded message to Discord', {
       id: message.id,
       subject: message.subject,
+      category: message.category || 'general',
+      hasCode: Boolean(message.extractedCode),
+      hasCta: Boolean(message.ctaUrl),
       webhookCount: config.discordWebhookUrls.length,
     });
   }
@@ -90,8 +93,6 @@ export async function runPollCycle({ gmail, config, logger }) {
   const runStartedAtMs = Date.now();
   const latestForRun = selectLatestMatchingMessagesForRun(recentMessages, config, runStartedAtMs);
   const latestIds = latestForRun.map((message) => message.id);
-  // Runs that post nothing must keep tracking the previous posts, otherwise the
-  // next run that does post can't delete them and the channel collects duplicates.
   const previousDiscordMessages = checkpoint.lastSentDiscordMessages ?? [];
 
   if (latestForRun.length === 0) {
@@ -104,9 +105,14 @@ export async function runPollCycle({ gmail, config, logger }) {
       latestIds,
       config.checkpointMaxIds,
       previousDiscordMessages,
+      {
+        windowMessages: [],
+        deliveredIds: [],
+        outcome: 'nothing',
+      },
     );
     await saveCheckpoint(config.checkpointPath, nextCheckpoint);
-    return { sent: 0, skipped: 0, initialized: false };
+    return { sent: 0, skipped: 0, initialized: false, outcome: 'nothing' };
   }
 
   if (hasExactDuplicateWindow(latestIds, checkpoint.lastOnceLatestIds || [], config.forwardLatestCount)) {
@@ -118,19 +124,35 @@ export async function runPollCycle({ gmail, config, logger }) {
       latestIds,
       config.checkpointMaxIds,
       previousDiscordMessages,
+      {
+        windowMessages: latestForRun,
+        deliveredIds: [],
+        outcome: 'skipped',
+      },
     );
     await saveCheckpoint(config.checkpointPath, nextCheckpoint);
-    return { sent: 0, skipped: latestForRun.length, initialized: false };
+    return { sent: 0, skipped: latestForRun.length, initialized: false, outcome: 'skipped' };
   }
 
   await deletePreviousMessages(checkpoint, logger);
 
   const { deliveredIds, discordMessages } = await sendMessages(latestForRun, config, logger);
-  const nextCheckpoint = buildCheckpointForOnceRun(checkpoint, latestIds, config.checkpointMaxIds, discordMessages);
+  const nextCheckpoint = buildCheckpointForOnceRun(
+    checkpoint,
+    latestIds,
+    config.checkpointMaxIds,
+    discordMessages,
+    {
+      windowMessages: latestForRun,
+      deliveredIds,
+      outcome: 'posted',
+    },
+  );
   await saveCheckpoint(config.checkpointPath, nextCheckpoint);
   return {
     sent: deliveredIds.length,
     skipped: 0,
     initialized: false,
+    outcome: 'posted',
   };
 }

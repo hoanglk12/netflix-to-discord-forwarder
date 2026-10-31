@@ -1,4 +1,4 @@
-import { getConfigView, addWebhookUrl, removeWebhookUrl } from '../src/api-service.js';
+import { getConfigView, addWebhookUrl, removeWebhookUrl, testWebhookByIndex } from '../src/api-service.js';
 import { isCrossOriginWrite } from '../src/request-guard.js';
 
 export default async function handler(req, res) {
@@ -34,8 +34,10 @@ export default async function handler(req, res) {
         result = await addWebhookUrl(body.webhookUrl?.trim());
       } else if (action === 'remove') {
         result = await removeWebhookUrl(Number(body.index));
+      } else if (action === 'test') {
+        result = await testWebhookByIndex(Number(body.index));
       } else {
-        result = { status: 400, data: { error: 'Invalid action. Use "add" or "remove".' } };
+        result = { status: 400, data: { error: 'Invalid action. Use "add", "remove", or "test".' } };
       }
 
       res.statusCode = result.status;
